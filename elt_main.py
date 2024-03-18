@@ -4,7 +4,11 @@ import os
 import pandas as pd
 from helper.utils.db_conn import db_connection
 from helper.utils.read_sql import read_sql_file
+from helper.utils.delete_files_in_directory import delete_files_in_directory
+from helper.utils.copy_log import copy_log
 from datetime import datetime
+import logging
+
 
 class Extract(luigi.Task):
     tables_to_extract = ['category', 'subcategory', 'customer', 'orders', 'product', 'order_detail']
@@ -14,6 +18,11 @@ class Extract(luigi.Task):
 
     def run(self):
         try:
+            # Configure logging
+            logging.basicConfig(filename = '/home/laode/pacmann/project/orchestrate-elt-with-luigi/temp/log/logs.log', 
+                                level = logging.INFO, 
+                                format = '%(asctime)s - %(levelname)s - %(message)s')
+            
             # Connect to PostgreSQL database
             conn_src, _, _, _ = db_connection()
             
@@ -26,7 +35,10 @@ class Extract(luigi.Task):
                 df = pd.read_sql_query(extract_query.format(table_name = table_name), conn_src)
 
                 # Write DataFrame to CSV
-                df.to_csv(f"/home/laode/pacmann/project/orchestrate-elt-with-luigi/helper/temp_data/{table_name}.csv", index=False)
+                df.to_csv(f"/home/laode/pacmann/project/orchestrate-elt-with-luigi/temp/data/{table_name}.csv", index=False)
+                
+                # Log success message
+                logging.info(f"EXTRACT '{table_name}' - SUCCESS.")
 
         except (Exception, psycopg2.Error) as error:
             print("Error while connecting to PostgreSQL:", error)
@@ -39,7 +51,9 @@ class Extract(luigi.Task):
     def output(self):
         outputs = []
         for table_name in self.tables_to_extract:
-            outputs.append(luigi.LocalTarget(f'/home/laode/pacmann/project/orchestrate-elt-with-luigi/helper/temp_data/{table_name}.csv'))
+            outputs.append(luigi.LocalTarget(f'/home/laode/pacmann/project/orchestrate-elt-with-luigi/temp/data/{table_name}.csv'))
+            
+        outputs.append(luigi.LocalTarget(f'/home/laode/pacmann/project/orchestrate-elt-with-luigi/temp/log/logs.log'))
         return outputs
 
 
@@ -53,6 +67,11 @@ class Load(luigi.Task):
     
     def run(self):
         try:
+            
+            # Configure logging
+            logging.basicConfig(filename = '/home/laode/pacmann/project/orchestrate-elt-with-luigi/temp/log/logs.log', 
+                                level = logging.INFO, 
+                                format = '%(asctime)s - %(levelname)s - %(message)s')
             
             # Data to be loaded
             category = pd.read_csv(self.input()[0].path)
@@ -107,6 +126,10 @@ class Load(luigi.Task):
 
             # Commit the transaction
             conn_dwh.commit()
+            
+            # Log success message
+            logging.info(f"LOAD category - SUCCESS")
+
 
             # Load to 'subcategory' table
             for index, row in subcategory.iterrows():
@@ -131,6 +154,10 @@ class Load(luigi.Task):
 
             # Commit the transaction
             conn_dwh.commit()
+            
+             # Log success message
+            logging.info(f"LOAD subcategory - SUCCESS")
+            
             
             # Load to 'customer' table
             for index, row in customer.iterrows():
@@ -160,6 +187,10 @@ class Load(luigi.Task):
             # Commit the transaction
             conn_dwh.commit()
             
+             # Log success message
+            logging.info(f"LOAD customer - SUCCESS")
+            
+            
             # Load to 'orders' table
             for index, row in orders.iterrows():
                 # Extract values from the DataFrame row
@@ -183,6 +214,10 @@ class Load(luigi.Task):
 
             # Commit the transaction
             conn_dwh.commit()
+            
+             # Log success message
+            logging.info(f"LOAD orders - SUCCESS")
+            
             
             # Load to 'product' table
             for index, row in product.iterrows():
@@ -210,6 +245,10 @@ class Load(luigi.Task):
             # Commit the transaction
             conn_dwh.commit()
             
+             # Log success message
+            logging.info(f"LOAD product - SUCCESS")
+            
+            
             # Load to 'order_detail' table
             for index, row in order_detail.iterrows():
                 # Extract values from the DataFrame row
@@ -236,6 +275,9 @@ class Load(luigi.Task):
             # Commit the transaction
             conn_dwh.commit()
             
+             # Log success message
+            logging.info(f"LOAD order_detail - SUCCESS")
+            
             # Close the cursor and connection
             conn_dwh.close()
             cur_dwh.close()
@@ -244,10 +286,8 @@ class Load(luigi.Task):
             print(f"Error loading data: {e}")
             
     def output(self):
-        outputs = []
-        for table_name in self.tables_to_extract:
-            outputs.append(luigi.LocalTarget(f'/home/laode/pacmann/project/orchestrate-elt-with-luigi/helper/temp_data/{table_name}.csv'))
-        return outputs
+        return luigi.LocalTarget(f'/home/laode/pacmann/project/orchestrate-elt-with-luigi/temp/log/logs.log')
+            
             
 class Transform(luigi.Task):
     current_local_time = datetime.now()
@@ -257,6 +297,12 @@ class Transform(luigi.Task):
     
     def run(self):
         try:
+            
+            # Configure logging
+            logging.basicConfig(filename = '/home/laode/pacmann/project/orchestrate-elt-with-luigi/temp/log/logs.log', 
+                                level = logging.INFO, 
+                                format = '%(asctime)s - %(levelname)s - %(message)s')
+               
             # Establish connections to source and DWH databases
             _, _, conn_dwh, cur_dwh = db_connection()
             
@@ -274,15 +320,21 @@ class Transform(luigi.Task):
             # Store all query in list
             all_query = [upsert_dim_customer_query, upsert_dim_product_query, upsert_fct_order_query]
             
+            # Table name
+            table_name = ['dim_customer', 'dim_product', 'fct_order']
+            
             # Lopp throug each query
-            for query in all_query:
+            for list_index in range(3):
                 # Execute the upsert query
-                cur_dwh.execute(query.format(
+                cur_dwh.execute(all_query[list_index].format(
                     current_local_time = self.current_local_time
                 ))
                 
                 # Commit the transaction
                 conn_dwh.commit()
+                
+                # Log success message
+                logging.info(f"Transform {table_name[list_index]} - SUCCESS")
             
             # Close the cursor and connection
             conn_dwh.close()
@@ -291,6 +343,24 @@ class Transform(luigi.Task):
         except Exception as e:
             print(f"Error during data transformation: {e}")
             
+    def output(self):
+        return luigi.LocalTarget(f'/home/laode/pacmann/project/orchestrate-elt-with-luigi/temp/log/logs.log')
+            
 # Execute the functions when the script is run
 if __name__ == "__main__":
-    luigi.build([Transform()])
+    luigi.build([Extract(),
+                 Load(),
+                 Transform()])
+    
+    copy_log(
+        source_file = '/home/laode/pacmann/project/orchestrate-elt-with-luigi/temp/log/logs.log',
+        destination_file = '/home/laode/pacmann/project/orchestrate-elt-with-luigi/logs/logs.log'
+    )
+    
+    delete_files_in_directory(
+        directory = '/home/laode/pacmann/project/orchestrate-elt-with-luigi/temp/data/'
+    )
+    
+    delete_files_in_directory(
+        directory = '/home/laode/pacmann/project/orchestrate-elt-with-luigi/temp/log/'
+    )

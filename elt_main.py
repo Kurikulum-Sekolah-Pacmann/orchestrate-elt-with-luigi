@@ -26,7 +26,7 @@ class Extract(luigi.Task):
                 df = pd.read_sql_query(extract_query.format(table_name = table_name), conn_src)
 
                 # Write DataFrame to CSV
-                df.to_csv(f"/home/laode/pacmann/project/orchestrate-elt-with-luigi/helper/utils/temp_data/{table_name}.csv", index=False)
+                df.to_csv(f"/home/laode/pacmann/project/orchestrate-elt-with-luigi/helper/temp_data/{table_name}.csv", index=False)
 
         except (Exception, psycopg2.Error) as error:
             print("Error while connecting to PostgreSQL:", error)
@@ -39,7 +39,7 @@ class Extract(luigi.Task):
     def output(self):
         outputs = []
         for table_name in self.tables_to_extract:
-            outputs.append(luigi.LocalTarget(f'/home/laode/pacmann/project/orchestrate-elt-with-luigi/helper/utils/temp_data/{table_name}.csv'))
+            outputs.append(luigi.LocalTarget(f'/home/laode/pacmann/project/orchestrate-elt-with-luigi/helper/temp_data/{table_name}.csv'))
         return outputs
 
 
@@ -246,7 +246,7 @@ class Load(luigi.Task):
     def output(self):
         outputs = []
         for table_name in self.tables_to_extract:
-            outputs.append(luigi.LocalTarget(f'/home/laode/pacmann/project/orchestrate-elt-with-luigi/helper/utils/temp_data/{table_name}.csv'))
+            outputs.append(luigi.LocalTarget(f'/home/laode/pacmann/project/orchestrate-elt-with-luigi/helper/temp_data/{table_name}.csv'))
         return outputs
             
 class Transform(luigi.Task):

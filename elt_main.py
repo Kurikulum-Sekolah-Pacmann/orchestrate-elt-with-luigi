@@ -1,13 +1,10 @@
 import luigi
 import psycopg2
-from dotenv import load_dotenv
 import os
 import pandas as pd
 from helper.utils.db_conn import db_connection
+from helper.utils.read_sql import read_sql_file
 from datetime import datetime
-
-load_dotenv()
-EXTRACT_OUTPUT_DIR = os.getenv("EXTRACT_OUTPUT_DIR")
 
 class Extract(luigi.Task):
     tables_to_extract = ['category', 'subcategory', 'customer', 'orders', 'product', 'order_detail']
@@ -17,21 +14,19 @@ class Extract(luigi.Task):
 
     def run(self):
         try:
-            
             # Connect to PostgreSQL database
             conn_src, _, _, _ = db_connection()
+            
+            extract_query = read_sql_file(
+                file_path = '/home/laode/pacmann/project/orchestrate-elt-with-luigi/src_query/extract/all-tables.sql'
+            )
 
             for table_name in self.tables_to_extract:
-                # Query to select data from the table
-                query = f"SELECT * FROM {table_name}"
-
                 # Read data into DataFrame
-                df = pd.read_sql_query(query, conn_src)
+                df = pd.read_sql_query(extract_query.format(table_name = table_name), conn_src)
 
                 # Write DataFrame to CSV
-                df.to_csv(f"{EXTRACT_OUTPUT_DIR}/{table_name}.csv", index=False)
-
-                print(f"Data from table '{table_name}' exported to '{table_name}.csv' successfully.")
+                df.to_csv(f"/home/laode/pacmann/project/orchestrate-elt-with-luigi/helper/utils/temp_data/{table_name}.csv", index=False)
 
         except (Exception, psycopg2.Error) as error:
             print("Error while connecting to PostgreSQL:", error)
@@ -44,7 +39,7 @@ class Extract(luigi.Task):
     def output(self):
         outputs = []
         for table_name in self.tables_to_extract:
-            outputs.append(luigi.LocalTarget(f'{EXTRACT_OUTPUT_DIR}/{table_name}.csv'))
+            outputs.append(luigi.LocalTarget(f'/home/laode/pacmann/project/orchestrate-elt-with-luigi/helper/utils/temp_data/{table_name}.csv'))
         return outputs
 
 
@@ -70,6 +65,27 @@ class Load(luigi.Task):
             # Establish connections to source and DWH databases
             _, _, conn_dwh, cur_dwh = db_connection()
             
+            # Define the query of each tables
+            upsert_category_query = read_sql_file(
+                file_path = '/home/laode/pacmann/project/orchestrate-elt-with-luigi/src_query/load/stg-category.sql'
+            )
+            upsert_subcategory_query = read_sql_file(
+                file_path = '/home/laode/pacmann/project/orchestrate-elt-with-luigi/src_query/load/stg-subcategory.sql'
+            )
+            upsert_customer_query = read_sql_file(
+                file_path = '/home/laode/pacmann/project/orchestrate-elt-with-luigi/src_query/load/stg-customer.sql'
+            )
+            upsert_orders_query = read_sql_file(
+                file_path = '/home/laode/pacmann/project/orchestrate-elt-with-luigi/src_query/load/stg-orders.sql'
+            )
+            upsert_product_query = read_sql_file(
+                file_path = '/home/laode/pacmann/project/orchestrate-elt-with-luigi/src_query/load/stg-product.sql'
+            )
+            upsert_order_detail_query = read_sql_file(
+                file_path = '/home/laode/pacmann/project/orchestrate-elt-with-luigi/src_query/load/stg-order_detail.sql'
+            )
+            
+    
             # Load to 'category' Table
             for index, row in category.iterrows():
                 # Extract values from the DataFrame row
@@ -78,33 +94,20 @@ class Load(luigi.Task):
                 description = row['description']
                 created_at = row['created_at']
                 updated_at = row['updated_at']
-
-                # Construct the SQL INSERT query
-                insert_query = f"""
-                INSERT INTO stg.category 
-                    (category_id, name, description, created_at, updated_at) 
-                VALUES 
-                    ('{category_id}', '{name}', '{description}', '{created_at}', '{updated_at}')
-                ON CONFLICT(category_id) 
-                DO UPDATE SET
-                    name = EXCLUDED.name,
-                    description = EXCLUDED.description,
-                    updated_at = CASE WHEN 
-                                        stg.category.name <> EXCLUDED.name 
-                                        OR stg.category.description <> EXCLUDED.description 
-                                THEN 
-                                        '{self.current_local_time}'
-                                ELSE
-                                        stg.category.updated_at
-                                END;
-                """
-
-                # Execute the INSERT query
-                cur_dwh.execute(insert_query)
+            
+                # Execute the upsert query
+                cur_dwh.execute(upsert_category_query.format(
+                    category_id = category_id,
+                    name = name,
+                    description = description,
+                    created_at = created_at,
+                    updated_at = updated_at,
+                    current_local_time = self.current_local_time
+                ))
 
             # Commit the transaction
             conn_dwh.commit()
-            
+
             # Load to 'subcategory' table
             for index, row in subcategory.iterrows():
                 # Extract values from the DataFrame row
@@ -114,32 +117,17 @@ class Load(luigi.Task):
                 description = row['description']
                 created_at = row['created_at']
                 updated_at = row['updated_at']
-                
-                
-                # Construct the SQL INSERT query
-                insert_query = f"""
-                INSERT INTO stg.subcategory 
-                    (subcategory_id, name, category_id, description, created_at, updated_at) 
-                VALUES 
-                    ('{subcategory_id}', '{name}', '{category_id}', '{description}', '{created_at}', '{updated_at}')
-                ON CONFLICT(subcategory_id) 
-                DO UPDATE SET
-                    name = EXCLUDED.name,
-                    category_id = EXCLUDED.category_id,
-                    description = EXCLUDED.description,
-                    updated_at = CASE WHEN 
-                                        stg.subcategory.name <> EXCLUDED.name 
-                                        OR stg.subcategory.category_id <> EXCLUDED.category_id 
-                                        OR stg.subcategory.description <> EXCLUDED.description 
-                                THEN 
-                                        '{self.current_local_time}'
-                                ELSE
-                                        stg.subcategory.updated_at
-                                END;
-                """
 
-                # Execute the INSERT query
-                cur_dwh.execute(insert_query)
+                # Execute the upsert query
+                cur_dwh.execute(upsert_subcategory_query.format(
+                    subcategory_id = subcategory_id,
+                    name = name,
+                    category_id = category_id,
+                    description = description,
+                    created_at = created_at,
+                    updated_at = updated_at,
+                    current_local_time = self.current_local_time
+                ))
 
             # Commit the transaction
             conn_dwh.commit()
@@ -156,34 +144,18 @@ class Load(luigi.Task):
                 created_at = row['created_at']
                 updated_at = row['updated_at']
 
-                # Construct the SQL INSERT query
-                insert_query = f"""
-                INSERT INTO stg.customer 
-                    (customer_id, first_name, last_name, email, phone, address, created_at, updated_at) 
-                VALUES 
-                    ('{customer_id}', '{first_name}', '{last_name}', '{email}', '{phone}', '{address}', '{created_at}', '{updated_at}')
-                ON CONFLICT(customer_id) 
-                DO UPDATE SET
-                    first_name = EXCLUDED.first_name,
-                    last_name = EXCLUDED.last_name,
-                    email = EXCLUDED.email,
-                    phone = EXCLUDED.phone,
-                    address = EXCLUDED.address,
-                    updated_at = CASE WHEN 
-                                        stg.customer.first_name <> EXCLUDED.first_name 
-                                        OR stg.customer.last_name <> EXCLUDED.last_name 
-                                        OR stg.customer.email <> EXCLUDED.email
-                                        OR stg.customer.phone <> EXCLUDED.phone 
-                                        OR stg.customer.address <> EXCLUDED.address 
-                                THEN 
-                                        '{self.current_local_time}'
-                                ELSE
-                                        stg.customer.updated_at
-                                END;
-                """
-
-                # Execute the INSERT query
-                cur_dwh.execute(insert_query)
+                # Execute the upsert query
+                cur_dwh.execute(upsert_customer_query.format(
+                    customer_id = customer_id,
+                    first_name = first_name,
+                    last_name = last_name,
+                    email = email,
+                    phone = phone,
+                    address = address,
+                    created_at = created_at,
+                    updated_at = updated_at,
+                    current_local_time = self.current_local_time
+                ))
 
             # Commit the transaction
             conn_dwh.commit()
@@ -198,30 +170,16 @@ class Load(luigi.Task):
                 created_at = row['created_at']
                 updated_at = row['updated_at']
 
-                # Construct the SQL INSERT query
-                insert_query = f"""
-                INSERT INTO stg.orders 
-                    (order_id, customer_id, order_date, status, created_at, updated_at) 
-                VALUES 
-                    ('{order_id}', '{customer_id}', '{order_date}', '{status}', '{created_at}', '{updated_at}')
-                ON CONFLICT(order_id) 
-                DO UPDATE SET
-                    customer_id = EXCLUDED.customer_id,
-                    order_date = EXCLUDED.order_date,
-                    status = EXCLUDED.status,
-                    updated_at = CASE WHEN 
-                                        stg.orders.customer_id <> EXCLUDED.customer_id 
-                                        OR stg.orders.order_date <> EXCLUDED.order_date 
-                                        OR stg.orders.status <> EXCLUDED.status
-                                THEN 
-                                        '{self.current_local_time}'
-                                ELSE
-                                        stg.orders.updated_at
-                                END;
-                """
-
-                # Execute the INSERT query
-                cur_dwh.execute(insert_query)
+                # Execute the upsert query
+                cur_dwh.execute(upsert_orders_query.format(
+                    order_id = order_id,
+                    customer_id = customer_id,
+                    order_date = order_date,
+                    status = status,
+                    created_at = created_at,
+                    updated_at = updated_at,
+                    current_local_time = self.current_local_time
+                ))
 
             # Commit the transaction
             conn_dwh.commit()
@@ -237,33 +195,17 @@ class Load(luigi.Task):
                 created_at = row['created_at']
                 updated_at = row['updated_at']
 
-                # Construct the SQL INSERT query
-                insert_query = f"""
-                INSERT INTO stg.product 
-                    (product_id, name, subcategory_id, price, stock, created_at, updated_at) 
-                VALUES 
-                    ('{product_id}', '{name}', {subcategory_id}, {price}, {stock}, '{created_at}', '{updated_at}')
-                ON CONFLICT(product_id) 
-                DO UPDATE SET
-                    name = EXCLUDED.name,
-                    subcategory_id = EXCLUDED.subcategory_id,
-                    price = EXCLUDED.price,
-                    stock = EXCLUDED.stock,
-                    updated_at = CASE WHEN 
-                                        stg.product.name <> EXCLUDED.name 
-                                        OR stg.product.subcategory_id <> EXCLUDED.subcategory_id 
-                                        OR stg.product.price <> EXCLUDED.price 
-                                        OR stg.product.stock <> EXCLUDED.stock 
-                                        
-                                THEN 
-                                        '{self.current_local_time}'
-                                ELSE
-                                        stg.product.updated_at
-                                END;
-                """
-
-                # Execute the INSERT query
-                cur_dwh.execute(insert_query)
+                # Execute the upsert query
+                cur_dwh.execute(upsert_product_query.format(
+                    product_id = product_id,
+                    name = name,
+                    subcategory_id = subcategory_id,
+                    price = price,
+                    stock = stock,
+                    created_at = created_at,
+                    updated_at = updated_at,
+                    current_local_time = self.current_local_time
+                ))
 
             # Commit the transaction
             conn_dwh.commit()
@@ -279,32 +221,17 @@ class Load(luigi.Task):
                 created_at = row['created_at']
                 updated_at = row['updated_at']
 
-                # Construct the SQL INSERT query
-                insert_query = f"""
-                INSERT INTO stg.order_detail 
-                    (order_detail_id, order_id, product_id, quantity, price, created_at, updated_at) 
-                VALUES 
-                    ('{order_detail_id}', '{order_id}', '{product_id}', '{quantity}', '{price}', '{created_at}', '{updated_at}')
-                ON CONFLICT(order_detail_id) 
-                DO UPDATE SET
-                    order_id = EXCLUDED.order_id,
-                    product_id = EXCLUDED.product_id,
-                    quantity = EXCLUDED.quantity,
-                    price = EXCLUDED.price,
-                    updated_at = CASE WHEN 
-                                        stg.order_detail.order_id <> EXCLUDED.order_id 
-                                        OR stg.order_detail.product_id <> EXCLUDED.product_id 
-                                        OR stg.order_detail.quantity <> EXCLUDED.quantity 
-                                        OR stg.order_detail.price <> EXCLUDED.price 
-                                THEN 
-                                        '{self.current_local_time}'
-                                ELSE
-                                        stg.order_detail.updated_at
-                                END;
-                """
-
-                # Execute the INSERT query
-                cur_dwh.execute(insert_query)
+                # Execute the upsert query
+                cur_dwh.execute(upsert_order_detail_query.format(
+                    order_detail_id = order_detail_id,
+                    order_id = order_id,
+                    product_id = product_id,
+                    quantity = quantity,
+                    price = price,
+                    created_at = created_at,
+                    updated_at = updated_at,
+                    current_local_time = self.current_local_time
+                ))
 
             # Commit the transaction
             conn_dwh.commit()
@@ -319,7 +246,7 @@ class Load(luigi.Task):
     def output(self):
         outputs = []
         for table_name in self.tables_to_extract:
-            outputs.append(luigi.LocalTarget(f'{EXTRACT_OUTPUT_DIR}/{table_name}.csv'))
+            outputs.append(luigi.LocalTarget(f'/home/laode/pacmann/project/orchestrate-elt-with-luigi/helper/utils/temp_data/{table_name}.csv'))
         return outputs
             
 class Transform(luigi.Task):
@@ -333,194 +260,29 @@ class Transform(luigi.Task):
             # Establish connections to source and DWH databases
             _, _, conn_dwh, cur_dwh = db_connection()
             
-            # dim_customer
-            # Construct the SQL INSERT query
-            insert_query = f"""
-            INSERT INTO prod.dim_customer (
-                customer_id,
-                customer_nk,
-                first_name,
-                last_name,
-                email,
-                phone,
-                address,
-                created_at,
-                updated_at
+            # Define the query of each tables
+            upsert_dim_customer_query = read_sql_file(
+                file_path = '/home/laode/pacmann/project/orchestrate-elt-with-luigi/src_query/transform/prod-dim_customer.sql'
             )
-
-            SELECT
-                c.id AS customer_id,
-                c.customer_id AS customer_nk,
-                c.first_name,
-                c.last_name,
-                c.email,
-                c.phone,
-                c.address,
-                c.created_at,
-                c.updated_at
-            FROM
-                stg.customer c
-                
-            ON CONFLICT(customer_id) 
-            DO UPDATE SET
-                customer_nk = EXCLUDED.customer_nk,
-                first_name = EXCLUDED.first_name,
-                last_name = EXCLUDED.last_name,
-                email = EXCLUDED.email,
-                phone = EXCLUDED.phone,
-                address = EXCLUDED.address,
-                updated_at = CASE WHEN 
-                                    prod.dim_customer.customer_nk <> EXCLUDED.customer_nk
-                                    OR prod.dim_customer.first_name <> EXCLUDED.first_name 
-                                    OR prod.dim_customer.last_name <> EXCLUDED.last_name 
-                                    OR prod.dim_customer.email <> EXCLUDED.email 
-                                    OR prod.dim_customer.phone <> EXCLUDED.phone 
-                                    OR prod.dim_customer.address <> EXCLUDED.address 
-                            THEN 
-                                    '{self.current_local_time}'
-                            ELSE
-                                    prod.dim_customer.updated_at
-                            END;
-            """
-
-            # Execute the INSERT query
-            cur_dwh.execute(insert_query)
-
-            # Commit the transaction
-            conn_dwh.commit()
-            
-            # dim_product
-            # Construct the SQL INSERT query
-            insert_query = f"""
-            INSERT INTO prod.dim_product (
-                product_id,
-                product_nk,
-                "name",
-                price,
-                stock,
-                category_name,
-                category_desc,
-                subcategory_name,
-                subcategory_desc,
-                created_at,
-                updated_at
+            upsert_dim_product_query = read_sql_file(
+                file_path = '/home/laode/pacmann/project/orchestrate-elt-with-luigi/src_query/transform/prod-dim_product.sql'
             )
-
-            SELECT
-                p.id AS product_id,
-                p.product_id AS product_nk,
-                p."name",
-                p.price,
-                p.stock,
-                c."name" AS category_name,
-                c.description AS category_desc,
-                s."name" AS subcategory_name,
-                s.description AS subcategory_desc,
-                p.created_at,
-                p.updated_at
-            FROM
-                stg.product p
-                
-            INNER JOIN
-                stg.subcategory s ON p.subcategory_id = s.subcategory_id
-            INNER JOIN
-                stg.category c ON s.category_id = c.category_id
-                
-            ON CONFLICT(product_id) 
-            DO UPDATE SET
-                product_nk = EXCLUDED.product_nk,
-                name = EXCLUDED.name,
-                price = EXCLUDED.price,
-                stock = EXCLUDED.stock,
-                category_name = EXCLUDED.category_name,
-                category_desc = EXCLUDED.category_desc,
-                subcategory_name = EXCLUDED.subcategory_name,
-                subcategory_desc = EXCLUDED.subcategory_desc,
-                updated_at = CASE WHEN 
-                                    prod.dim_product.product_nk <> EXCLUDED.product_nk
-                                    OR prod.dim_product.name <> EXCLUDED.name 
-                                    OR prod.dim_product.price <> EXCLUDED.price 
-                                    OR prod.dim_product.stock <> EXCLUDED.stock 
-                                    OR prod.dim_product.category_name <> EXCLUDED.category_name 
-                                    OR prod.dim_product.category_desc <> EXCLUDED.category_desc 
-                                    OR prod.dim_product.subcategory_name <> EXCLUDED.subcategory_name 
-                                    OR prod.dim_product.subcategory_desc <> EXCLUDED.subcategory_desc 
-                            THEN 
-                                    '{self.current_local_time}'
-                            ELSE
-                                    prod.dim_product.updated_at
-                            END;
-            """
-
-            # Execute the INSERT query
-            cur_dwh.execute(insert_query)
-
-            # Commit the transaction
-            conn_dwh.commit()
-            
-            
-            
-            # fact_order
-            # Construct the SQL INSERT query
-            # Construct the SQL INSERT query
-            insert_query = f"""
-            INSERT INTO prod.fct_order (
-                order_id,
-                product_id,
-                customer_id,
-                date_id,
-                quantity,
-                status,
-                created_at,
-                updated_at
+            upsert_fct_order_query = read_sql_file(
+                file_path = '/home/laode/pacmann/project/orchestrate-elt-with-luigi/src_query/transform/prod-fct_order.sql'
             )
-
-            SELECT
-                o.id AS order_id,
-                dp.product_id,
-                dc.customer_id,
-                dd.date_id,
-                od.quantity,
-                o.status,
-                od.created_at,
-                od.updated_at
-            FROM
-                stg.order_detail od
+            
+            # Store all query in list
+            all_query = [upsert_dim_customer_query, upsert_dim_product_query, upsert_fct_order_query]
+            
+            # Lopp throug each query
+            for query in all_query:
+                # Execute the upsert query
+                cur_dwh.execute(query.format(
+                    current_local_time = self.current_local_time
+                ))
                 
-            INNER JOIN 
-                stg.orders o ON od.order_id = o.order_id
-            INNER JOIN 
-                prod.dim_customer dc ON o.customer_id = dc.customer_nk
-            INNER JOIN 
-                prod.dim_product dp on od.product_id = dp.product_nk 
-            INNER JOIN 
-                prod.dim_date dd on o.order_date = dd.date_actual
-                
-            ON CONFLICT (order_id, product_id, customer_id, date_id, quantity, status, created_at) 
-            DO UPDATE SET 
-                order_id = EXCLUDED.order_id,
-                product_id = EXCLUDED.product_id,
-                customer_id = EXCLUDED.customer_id,
-                date_id = EXCLUDED.date_id,
-                quantity = EXCLUDED.quantity,
-                status = EXCLUDED.status,
-                created_at = EXCLUDED.created_at,
-                updated_at = CASE 
-                    WHEN prod.fct_order.customer_id <> EXCLUDED.customer_id 
-                        OR prod.fct_order.date_id <> EXCLUDED.date_id 
-                        OR prod.fct_order.quantity <> EXCLUDED.quantity 
-                        OR prod.fct_order.status <> EXCLUDED.status 
-                        OR prod.fct_order.created_at <> EXCLUDED.created_at 
-                    THEN '{self.current_local_time}' 
-                    ELSE prod.fct_order.updated_at 
-                END;
-            """
-
-            # Execute the INSERT query
-            cur_dwh.execute(insert_query)
-
-            # Commit the transaction
-            conn_dwh.commit()
+                # Commit the transaction
+                conn_dwh.commit()
             
             # Close the cursor and connection
             conn_dwh.close()

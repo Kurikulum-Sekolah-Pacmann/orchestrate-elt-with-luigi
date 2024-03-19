@@ -51,6 +51,9 @@
     DWH_POSTGRES_USER=postgres
     DWH_POSTGRES_PASSWORD=mypassword
     DWH_POSTGRES_PORT=5434
+
+    # SENTRY DSN
+    SENTRY_DSN=... # Fill with your Sentry Project DSN
     ```
 
 - Create permissions for bash scripts (setup & run_elt scripts)

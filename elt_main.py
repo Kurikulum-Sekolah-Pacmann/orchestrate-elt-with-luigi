@@ -9,11 +9,17 @@ from pipeline.utils.concat_dataframe import concat_dataframes
 from pipeline.utils.copy_log import copy_log
 from pipeline.utils.delete_files_in_directory import delete_files_in_directory
 
+from dotenv import load_dotenv
+import os
+
+# Load environment variables from .env file
+load_dotenv()
+
 sentry_sdk.init(
-    dsn = "https://91d2bdc9260f043d5da1bcebcf64e151@o4505978372620288.ingest.us.sentry.io/4506936310693888",
+    dsn = os.getenv("SENTRY_DSN"),
 )
 
-            
+
 # Execute the functions when the script is run
 if __name__ == "__main__":
     luigi.build([Extract(),

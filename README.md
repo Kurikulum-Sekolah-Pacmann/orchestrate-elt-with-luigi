@@ -24,6 +24,14 @@
   # Clone using HTTPS
   git clone https://github.com/rahilaode/orchestrate-elt-with-luigi.git
   ```
+- Create Sentry Project.
+  - Open : https://www.sentry.io
+  - Signup with email you want to get notifications abot the error
+  - Create Project :
+    - Select Platform : Python
+    - Set Alert frequency : `On every new issue`
+    - Create project name.
+  - After create the project, store SENTRY DSN of your project into .env file.
 
 - In thats project directory, create .venv (virtual environment) :
   ```
@@ -89,3 +97,24 @@
       * * * * * /home/laode/pacmann/project/orchestrate-elt-with-luigi/helper/utils/run_elt.sh &
       ```
     - Thats schedule means that we want to run the pipeline **every minutes**
+
+- Logging :
+  - See [Log File](https://github.com/rahilaode/orchestrate-elt-with-luigi/blob/master/logs/logs.log)
+
+- Reporting :
+  - Example :
+    | Timestamp               | Task      | Status  | Execution Time |
+    |-------------------------|-----------|---------|----------------|
+    | 2024-03-19 22:21:22.005 | Extract   | Success | 0.087          |
+    | 2024-03-19 22:21:22.124 | Load      | Success | 5.976          |
+    | 2024-03-19 22:21:28.155 | Transform | Success | 0.108          |
+    | 2024-03-19 22:23:06.192 | Extract   | Success | 0.083          |
+    | 2024-03-19 22:23:06.306 | Load      | Success | 4.684          |
+    | 2024-03-19 22:23:11.038 | Transform | Success | 0.051          |
+
+  - See [Pipeline Summary](https://github.com/rahilaode/orchestrate-elt-with-luigi/blob/master/pipeline_summary.csv)
+
+
+- Alerting / Notifications :
+  - Make sure again the `SENTRY_DSN` is correct.
+  - If correct, so we will get notifications in email that we have signed up in sentry platforms.

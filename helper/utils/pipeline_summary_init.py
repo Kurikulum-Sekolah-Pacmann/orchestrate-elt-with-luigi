@@ -11,6 +11,9 @@ def pipeline_summary_init():
     
     df = pd.DataFrame(summary_data)
     df.to_csv('/home/laode/pacmann/project/orchestrate-elt-with-luigi/pipeline_summary.csv', index = False)
+    df.to_csv('/home/laode/pacmann/project/orchestrate-elt-with-luigi/temp/data/extract-summary.csv', index = False)
+    df.to_csv('/home/laode/pacmann/project/orchestrate-elt-with-luigi/temp/data/load-summary.csv', index = False)
+    df.to_csv('/home/laode/pacmann/project/orchestrate-elt-with-luigi/temp/data/transform-summary.csv', index = False)
     
 if __name__ == '__main__':
     pipeline_summary_init()

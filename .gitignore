@@ -2,5 +2,3 @@ elt-with-python.ipynb
 .env
 .venv
 __pycache__
-temp
-logs

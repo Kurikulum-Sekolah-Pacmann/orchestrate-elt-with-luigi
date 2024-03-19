@@ -1,0 +1,47 @@
+2024-03-19 16:29:26,812 - INFO - EXTRACT 'category' - SUCCESS.
+2024-03-19 16:29:26,818 - INFO - EXTRACT 'subcategory' - SUCCESS.
+2024-03-19 16:29:26,830 - INFO - EXTRACT 'customer' - SUCCESS.
+2024-03-19 16:29:26,841 - INFO - EXTRACT 'orders' - SUCCESS.
+2024-03-19 16:29:26,858 - INFO - EXTRACT 'product' - SUCCESS.
+2024-03-19 16:29:26,890 - INFO - EXTRACT 'order_detail' - SUCCESS.
+2024-03-19 16:29:26,892 - INFO - [pid 99080] Worker Worker(salt=5234528686, workers=1, host=DESKTOP-V42S030, username=laode, pid=99080) done      Extract()
+2024-03-19 16:29:26,893 - DEBUG - 1 running tasks, waiting for next task to finish
+2024-03-19 16:29:26,896 - INFO - Informed scheduler that task   Extract__99914b932b   has status   DONE
+2024-03-19 16:29:26,897 - DEBUG - Asking scheduler for work...
+2024-03-19 16:29:26,899 - DEBUG - Pending tasks: 2
+2024-03-19 16:29:26,899 - INFO - [pid 99080] Worker Worker(salt=5234528686, workers=1, host=DESKTOP-V42S030, username=laode, pid=99080) running   Load()
+2024-03-19 16:29:26,950 - INFO - LOAD category - SUCCESS
+2024-03-19 16:29:27,099 - INFO - LOAD subcategory - SUCCESS
+2024-03-19 16:29:27,762 - INFO - LOAD customer - SUCCESS
+2024-03-19 16:29:28,432 - INFO - LOAD orders - SUCCESS
+2024-03-19 16:29:29,288 - INFO - LOAD product - SUCCESS
+2024-03-19 16:29:32,521 - INFO - LOAD order_detail - SUCCESS
+2024-03-19 16:29:32,524 - INFO - [pid 99080] Worker Worker(salt=5234528686, workers=1, host=DESKTOP-V42S030, username=laode, pid=99080) done      Load()
+2024-03-19 16:29:32,525 - DEBUG - 1 running tasks, waiting for next task to finish
+2024-03-19 16:29:32,532 - INFO - Informed scheduler that task   Load__99914b932b   has status   DONE
+2024-03-19 16:29:32,533 - DEBUG - Asking scheduler for work...
+2024-03-19 16:29:32,538 - DEBUG - Pending tasks: 1
+2024-03-19 16:29:32,539 - INFO - [pid 99080] Worker Worker(salt=5234528686, workers=1, host=DESKTOP-V42S030, username=laode, pid=99080) running   Transform()
+2024-03-19 16:29:32,571 - INFO - Transform dim_customer - SUCCESS
+2024-03-19 16:29:32,586 - INFO - Transform dim_product - SUCCESS
+2024-03-19 16:29:32,739 - INFO - Transform fct_order - SUCCESS
+2024-03-19 16:29:32,744 - INFO - [pid 99080] Worker Worker(salt=5234528686, workers=1, host=DESKTOP-V42S030, username=laode, pid=99080) done      Transform()
+2024-03-19 16:29:32,746 - DEBUG - 1 running tasks, waiting for next task to finish
+2024-03-19 16:29:32,763 - INFO - Informed scheduler that task   Transform__99914b932b   has status   DONE
+2024-03-19 16:29:32,763 - DEBUG - Asking scheduler for work...
+2024-03-19 16:29:32,770 - DEBUG - Done
+2024-03-19 16:29:32,770 - DEBUG - There are no more tasks to run at this time
+2024-03-19 16:29:32,771 - INFO - Worker Worker(salt=5234528686, workers=1, host=DESKTOP-V42S030, username=laode, pid=99080) was stopped. Shutting down Keep-Alive thread
+2024-03-19 16:29:32,774 - INFO - 
+===== Luigi Execution Summary =====
+
+Scheduled 3 tasks of which:
+* 3 ran successfully:
+    - 1 Extract()
+    - 1 Load()
+    - 1 Transform()
+
+This progress looks :) because there were no failed tasks or missing dependencies
+
+===== Luigi Execution Summary =====
+

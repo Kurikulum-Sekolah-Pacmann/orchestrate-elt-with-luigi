@@ -10,15 +10,31 @@ from helper.utils.concat_dataframe import concat_dataframes
 from datetime import datetime
 import logging
 import time
+import sentry_sdk
+
+
+sentry_sdk.init(
+    dsn = "https://91d2bdc9260f043d5da1bcebcf64e151@o4505978372620288.ingest.us.sentry.io/4506936310693888",
+)
+
 
 
 class Extract(luigi.Task):
+    
     tables_to_extract = ['category', 'subcategory', 'customer', 'orders', 'product', 'order_detail']
+    
     
     def requires(self):
         pass
 
+
     def run(self):
+        # Create summary for extract task
+        timestamp_data = [datetime.now()]
+        task_data = ['Extract']
+        status_data = []
+        execution_time_data = []
+        
         try:
             # Configure logging
             logging.basicConfig(filename = '/home/laode/pacmann/project/orchestrate-elt-with-luigi/temp/log/logs.log', 
@@ -33,43 +49,35 @@ class Extract(luigi.Task):
                 file_path = '/home/laode/pacmann/project/orchestrate-elt-with-luigi/src_query/extract/all-tables.sql'
             )
             
-            # Create summary for extract task
-            timestamp_data = []
-            tables_name_data = []
-            task_data = []
-            status_data = []
-            execution_time_data = []
+            start_time = time.time()  # Record start time
             
-            for table_name in self.tables_to_extract:
+            for index, table_name in enumerate(self.tables_to_extract):
                 try:
-                    start_time = time.time()  # Record start time
-                    
                     # Read data into DataFrame
                     df = pd.read_sql_query(extract_query.format(table_name = table_name), conn_src)
 
                     # Write DataFrame to CSV
                     df.to_csv(f"/home/laode/pacmann/project/orchestrate-elt-with-luigi/temp/data/{table_name}.csv", index=False)
                     
-                    end_time = time.time()  # Record end time
-                    execution_time = end_time - start_time  # Calculate execution time
-                    
-                    # Get summary
-                    timestamp_data.append(datetime.now())
-                    tables_name_data.append(table_name)
-                    task_data.append('Extract')
-                    status_data.append('Success')
-                    execution_time_data.append(execution_time)
-                    
                     # Log success message
                     logging.info(f"EXTRACT '{table_name}' - SUCCESS.")
                     
-                except (Exception, psycopg2.Error) as error:
-                    print("Error while connecting to PostgreSQL:", error)
+                except Exception:
+                    # Log success message
+                    logging.info(f"EXTRACT '{table_name}' - FAILED.")  
+                      
+                    raise Exception(f"Failed to extract '{table_name}' tables")
+            
+            end_time = time.time()  # Record end time
+            execution_time = end_time - start_time  # Calculate execution time
+            
+            # Get summary
+            status_data.append('Success')   
+            execution_time_data.append(execution_time)
             
             # Get summary dict
             summary_data = {
                 'timestamp': timestamp_data,
-                'tables_name': tables_name_data,
                 'task': task_data,
                 'status' : status_data,
                 'execution_time': execution_time_data
@@ -81,8 +89,31 @@ class Extract(luigi.Task):
             # Write DataFrame to CSV
             summary.to_csv(f"/home/laode/pacmann/project/orchestrate-elt-with-luigi/temp/data/extract-summary.csv", index = False)
                     
-        except (Exception, psycopg2.Error) as error:
-            print("Error while connecting to PostgreSQL:", error)
+        except Exception:
+            start_time = time.time()  # Record start time
+            end_time = time.time()  # Record end time
+            execution_time = end_time - start_time  # Calculate execution time
+            
+            # Get summary
+            status_data.append('Failed')
+            execution_time_data.append(execution_time)
+            
+            # Get summary dict
+            summary_data = {
+                'timestamp': timestamp_data,
+                'task': task_data,
+                'status' : status_data,
+                'execution_time': execution_time_data
+            }
+            
+            # Get summary dataframes
+            summary = pd.DataFrame(summary_data)
+            
+            # Write DataFrame to CSV
+            summary.to_csv(f"/home/laode/pacmann/project/orchestrate-elt-with-luigi/temp/data/extract-summary.csv", index = False)
+            
+            # Write exception
+            raise Exception(f"FAILED to execute EXTRACT TASK !!!")
 
         finally:
             # Close database conn_src
@@ -99,7 +130,6 @@ class Extract(luigi.Task):
         outputs.append(luigi.LocalTarget(f'/home/laode/pacmann/project/orchestrate-elt-with-luigi/temp/log/logs.log'))
         return outputs
 
-
 # --------------------------------------------------------------------------------------------------------------------------------------------------------                
 class Load(luigi.Task):
     tables_to_extract = ['category', 'subcategory', 'customer', 'orders', 'product', 'order_detail']
@@ -109,25 +139,39 @@ class Load(luigi.Task):
         return Extract()
     
     def run(self):
+        # Create summary for extract task
+        timestamp_data = [datetime.now()]
+        task_data = ['Load']
+        status_data = []
+        execution_time_data = []
+    
+        # Establish connections to source and DWH databases
         try:
+            _, _, conn_dwh, cur_dwh = db_connection()
             
-            # Configure logging
-            logging.basicConfig(filename = '/home/laode/pacmann/project/orchestrate-elt-with-luigi/temp/log/logs.log', 
-                                level = logging.INFO, 
-                                format = '%(asctime)s - %(levelname)s - %(message)s')
-            
-            # Data to be loaded
+        except Exception:
+            raise Exception("Failed to connect to Data Warehouse")
+        
+        # Configure logging
+        logging.basicConfig(filename = '/home/laode/pacmann/project/orchestrate-elt-with-luigi/temp/log/logs.log', 
+                            level = logging.INFO, 
+                            format = '%(asctime)s - %(levelname)s - %(message)s')
+        
+        # Data to be loaded
+        try:
             category = pd.read_csv(self.input()[0].path)
             subcategory = pd.read_csv(self.input()[1].path)
             customer = pd.read_csv(self.input()[2].path)
             orders = pd.read_csv(self.input()[3].path)
             product = pd.read_csv(self.input()[4].path)
             order_detail = pd.read_csv(self.input()[5].path)
-            
-            # Establish connections to source and DWH databases
-            _, _, conn_dwh, cur_dwh = db_connection()
-            
-            # Define the query of each tables
+
+        except Exception:
+            raise Exception("Failed to Read Extracted CSV")
+        
+        
+        # Define the query of each tables
+        try:
             upsert_category_query = read_sql_file(
                 file_path = '/home/laode/pacmann/project/orchestrate-elt-with-luigi/src_query/load/stg-category.sql'
             )
@@ -147,16 +191,14 @@ class Load(luigi.Task):
                 file_path = '/home/laode/pacmann/project/orchestrate-elt-with-luigi/src_query/load/stg-order_detail.sql'
             )
             
-            # Create summary for extract task
-            timestamp_data = []
-            tables_name_data = []
-            task_data = []
-            status_data = []
-            execution_time_data = []
-            
-            
+        except Exception:
+            raise Exception("Failed to read SQL Query")
+        
+        start_time = time.time()  # Record start time
+        
+        # Load to Database
+        try:
             # Load to 'category' Table
-            start_time = time.time()  # Record start time
             for index, row in category.iterrows():
                 # Extract values from the DataFrame row
                 category_id = row['category_id']
@@ -178,22 +220,10 @@ class Load(luigi.Task):
             # Commit the transaction
             conn_dwh.commit()
             
-            end_time = time.time()  # Record end time
-            execution_time = end_time - start_time  # Calculate execution time
-            
-            # Get summary
-            timestamp_data.append(datetime.now())
-            tables_name_data.append('category')
-            task_data.append('Load')
-            status_data.append('Success')
-            execution_time_data.append(execution_time)
-            
             # Log success message
             logging.info(f"LOAD category - SUCCESS")
 
-
             # Load to 'subcategory' table
-            start_time = time.time()  # Record start time
             for index, row in subcategory.iterrows():
                 # Extract values from the DataFrame row
                 subcategory_id = row['subcategory_id']
@@ -217,22 +247,10 @@ class Load(luigi.Task):
             # Commit the transaction
             conn_dwh.commit()
             
-            end_time = time.time()  # Record end time
-            execution_time = end_time - start_time  # Calculate execution time
-            
-            # Get summary
-            timestamp_data.append(datetime.now())
-            tables_name_data.append('subcategory')
-            task_data.append('Load')
-            status_data.append('Success')
-            execution_time_data.append(execution_time)
-            
-             # Log success message
+            # Log success message
             logging.info(f"LOAD subcategory - SUCCESS")
             
-            
             # Load to 'customer' table
-            start_time = time.time()  # Record start time
             for index, row in customer.iterrows():
                 # Extract values from the DataFrame row
                 customer_id = row['customer_id']
@@ -260,22 +278,10 @@ class Load(luigi.Task):
             # Commit the transaction
             conn_dwh.commit()
             
-            end_time = time.time()  # Record end time
-            execution_time = end_time - start_time  # Calculate execution time
-            
-            # Get summary
-            timestamp_data.append(datetime.now())
-            tables_name_data.append('customer')
-            task_data.append('Load')
-            status_data.append('Success')
-            execution_time_data.append(execution_time)
-            
-             # Log success message
+            # Log success message
             logging.info(f"LOAD customer - SUCCESS")
             
-            
             # Load to 'orders' table
-            start_time = time.time()  # Record start time
             for index, row in orders.iterrows():
                 # Extract values from the DataFrame row
                 order_id = row['order_id']
@@ -299,22 +305,10 @@ class Load(luigi.Task):
             # Commit the transaction
             conn_dwh.commit()
             
-            end_time = time.time()  # Record end time
-            execution_time = end_time - start_time  # Calculate execution time
-            
-            # Get summary
-            timestamp_data.append(datetime.now())
-            tables_name_data.append('orders')
-            task_data.append('Load')
-            status_data.append('Success')
-            execution_time_data.append(execution_time)
-            
-             # Log success message
+            # Log success message
             logging.info(f"LOAD orders - SUCCESS")
             
-            
             # Load to 'product' table
-            start_time = time.time()  # Record start time
             for index, row in product.iterrows():
                 # Extract values from the DataFrame row
                 product_id = row['product_id']
@@ -340,22 +334,10 @@ class Load(luigi.Task):
             # Commit the transaction
             conn_dwh.commit()
             
-            end_time = time.time()  # Record end time
-            execution_time = end_time - start_time  # Calculate execution time
-            
-            # Get summary
-            timestamp_data.append(datetime.now())
-            tables_name_data.append('product')
-            task_data.append('Load')
-            status_data.append('Success')
-            execution_time_data.append(execution_time)
-            
-             # Log success message
+            # Log success message
             logging.info(f"LOAD product - SUCCESS")
             
-            
             # Load to 'order_detail' table
-            start_time = time.time()  # Record start time
             for index, row in order_detail.iterrows():
                 # Extract values from the DataFrame row
                 order_detail_id = row['order_detail_id']
@@ -385,16 +367,12 @@ class Load(luigi.Task):
             execution_time = end_time - start_time  # Calculate execution time
             
             # Get summary
-            timestamp_data.append(datetime.now())
-            tables_name_data.append('order_detail')
-            task_data.append('Load')
             status_data.append('Success')
             execution_time_data.append(execution_time)
             
             # Get summary dict
             summary_data = {
                 'timestamp': timestamp_data,
-                'tables_name': tables_name_data,
                 'task': task_data,
                 'status' : status_data,
                 'execution_time': execution_time_data
@@ -406,21 +384,44 @@ class Load(luigi.Task):
             # Write DataFrame to CSV
             summary.to_csv(f"/home/laode/pacmann/project/orchestrate-elt-with-luigi/temp/data/load-summary.csv", index = False)
             
-             # Log success message
+            # Log success message
             logging.info(f"LOAD order_detail - SUCCESS")
             
             # Close the cursor and connection
             conn_dwh.close()
             cur_dwh.close()
+        
+        except Exception:
+            start_time = time.time() # Record start time
+            end_time = time.time()  # Record end time
+            execution_time = end_time - start_time  # Calculate execution time
             
-        except Exception as e:
-            print(f"Error loading data: {e}")
+            # Get summary
+            status_data.append('Failed')
+            execution_time_data.append(execution_time)
             
+            # Get summary dict
+            summary_data = {
+                'timestamp': timestamp_data,
+                'task': task_data,
+                'status' : status_data,
+                'execution_time': execution_time_data
+            }
+            
+            # Get summary dataframes
+            summary = pd.DataFrame(summary_data)
+            
+            # Write DataFrame to CSV
+            summary.to_csv(f"/home/laode/pacmann/project/orchestrate-elt-with-luigi/temp/data/load-summary.csv", index = False)
+            
+            raise Exception('Failed to Load Tables')
+
     def output(self):
         return [luigi.LocalTarget(f'/home/laode/pacmann/project/orchestrate-elt-with-luigi/temp/log/logs.log'),
                 luigi.LocalTarget(f'/home/laode/pacmann/project/orchestrate-elt-with-luigi/temp/data/load-summary.csv')]
+  
             
-            
+# -----------------------------------------------------------------------------------------------------------------------------------          
 class Transform(luigi.Task):
     current_local_time = datetime.now()
     
@@ -428,6 +429,12 @@ class Transform(luigi.Task):
         return Load()
     
     def run(self):
+        # Create summary for extract task
+        timestamp_data = [datetime.now()]
+        task_data = ['Transform']
+        status_data = []
+        execution_time_data = []
+        
         try:
             
             # Configure logging
@@ -455,57 +462,75 @@ class Transform(luigi.Task):
             # Table name
             table_name = ['dim_customer', 'dim_product', 'fct_order']
             
-            # Create summary for extract task
-            timestamp_data = []
-            tables_name_data = []
-            task_data = []
-            status_data = []
-            execution_time_data = []
+            start_time = time.time()  # Record start time
             
-            # Lopp throug each query
-            for list_index in range(3):
-                try:
-                    start_time = time.time()  # Record start time
+            try:
+                # Lopp throug each query
+                for list_index in range(3):
+                    try:
+                        start_time = time.time()  # Record start time
+                        
+                        # Execute the upsert query
+                        cur_dwh.execute(all_query[list_index].format(
+                            current_local_time = self.current_local_time
+                        ))
+                        
+                        # Commit the transaction
+                        conn_dwh.commit()
+                        
+                        # Log success message
+                        logging.info(f"Transform {table_name[list_index]} - SUCCESS")
+                        
+                    except Exception:
+                        logging.info(f"Transform {table_name[list_index]} - FAILED")
+                        print(f"Error Transforming data: {e}")
                     
-                    # Execute the upsert query
-                    cur_dwh.execute(all_query[list_index].format(
-                        current_local_time = self.current_local_time
-                    ))
+                end_time = time.time()  # Record end time
+                execution_time = end_time - start_time  # Calculate execution time
+                
+                # Get summary
+                status_data.append('Success')
+                execution_time_data.append(execution_time)
+                
+                # Get summary dict
+                summary_data = {
+                    'timestamp': timestamp_data,
+                    'task': task_data,
+                    'status' : status_data,
+                    'execution_time': execution_time_data
+                }
+                
+                # Get summary dataframes
+                summary = pd.DataFrame(summary_data)
+                
+                # Write DataFrame to CSV
+                summary.to_csv(f"/home/laode/pacmann/project/orchestrate-elt-with-luigi/temp/data/transform-summary.csv", index = False)
+        
+            except Exception as e:
+                start_time = time.time() # Record start time
+                end_time = time.time()  # Record end time
+                execution_time = end_time - start_time  # Calculate execution time
+                
+                # Get summary
+                status_data.append('Success')
+                execution_time_data.append(execution_time)
+                
+                # Get summary dict
+                summary_data = {
+                    'timestamp': timestamp_data,
+                    'task': task_data,
+                    'status' : status_data,
+                    'execution_time': execution_time_data
+                }
+                
+                # Get summary dataframes
+                summary = pd.DataFrame(summary_data)
+                
+                # Write DataFrame to CSV
+                summary.to_csv(f"/home/laode/pacmann/project/orchestrate-elt-with-luigi/temp/data/transform-summary.csv", index = False)
+        
+                logging.info(f"Transform  - FAILED")
                     
-                    # Commit the transaction
-                    conn_dwh.commit()
-                    
-                    end_time = time.time()  # Record end time
-                    execution_time = end_time - start_time  # Calculate execution time
-                    
-                    # Get summary
-                    timestamp_data.append(datetime.now())
-                    tables_name_data.append(table_name[list_index])
-                    task_data.append('Extract')
-                    status_data.append('Success')
-                    execution_time_data.append(execution_time)
-                    
-                    # Log success message
-                    logging.info(f"Transform {table_name[list_index]} - SUCCESS")
-                    
-                except Exception as e:
-                    print(f"Error Transforming data: {e}")
-                    
-            # Get summary dict
-            summary_data = {
-                'timestamp': timestamp_data,
-                'tables_name': tables_name_data,
-                'task': task_data,
-                'status' : status_data,
-                'execution_time': execution_time_data
-            }
-            
-            # Get summary dataframes
-            summary = pd.DataFrame(summary_data)
-            
-            # Write DataFrame to CSV
-            summary.to_csv(f"/home/laode/pacmann/project/orchestrate-elt-with-luigi/temp/data/transform-summary.csv", index = False)      
-            
             # Close the cursor and connection
             conn_dwh.close()
             cur_dwh.close()

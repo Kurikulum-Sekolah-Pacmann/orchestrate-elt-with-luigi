@@ -3,7 +3,6 @@ import pandas as pd
 def pipeline_summary_init():
     summary_data = {
         'timestamp': [],
-        'tables_name': [],
         'task': [],
         'status' : [],
         'execution_time': []

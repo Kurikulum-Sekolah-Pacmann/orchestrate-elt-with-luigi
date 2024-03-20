@@ -120,4 +120,5 @@
   - If correct, so we will get notifications in email that we have signed up in sentry platforms.
 
 # Results
+- Open : `http://localhost:8082` to open luigi visualizer.
 ![alt text](https://sekolahdata-assets.s3.ap-southeast-1.amazonaws.com/notebook-images/mde-data-storage/09-12.png)

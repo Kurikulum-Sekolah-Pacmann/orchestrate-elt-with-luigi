@@ -121,4 +121,4 @@
 
 # Results
 - Open : `http://localhost:8082` to open luigi visualizer.
-![alt text](https://sekolahdata-assets.s3.ap-southeast-1.amazonaws.com/notebook-images/mde-data-storage/09-12.png)
+![alt text](https://github.com/rahilaode/orchestrate-elt-with-luigi/blob/master/asset/pipeline-result.png)

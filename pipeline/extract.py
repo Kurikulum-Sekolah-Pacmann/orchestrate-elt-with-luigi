@@ -128,6 +128,6 @@ if __name__ == "__main__":
     )
     
     copy_log(
-        source_file = '/home/laode/pacmann/project/orchestrate-elt-with-luigi/temp/log/logs.log',
+        source_file = '/home/laode/pacmann/project/orchestrate-elt-with-luigi/pipeline/temp/log/logs.log',
         destination_file = '/home/laode/pacmann/project/orchestrate-elt-with-luigi/logs/logs.log'
     )

@@ -118,3 +118,6 @@
 - Alerting / Notifications :
   - Make sure again the `SENTRY_DSN` is correct.
   - If correct, so we will get notifications in email that we have signed up in sentry platforms.
+
+# Results
+![alt text](https://sekolahdata-assets.s3.ap-southeast-1.amazonaws.com/notebook-images/mde-data-storage/09-12.png)

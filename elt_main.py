@@ -15,6 +15,7 @@ import os
 # Load environment variables from .env file
 load_dotenv()
 
+# Integrate with sentry project to track errors from code
 sentry_sdk.init(
     dsn = os.getenv("SENTRY_DSN"),
 )

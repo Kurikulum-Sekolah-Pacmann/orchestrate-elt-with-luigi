@@ -19,7 +19,7 @@ SENTRY_DSN = os.getenv("SENTRY_DSN")
 
 # Track the error using sentry
 sentry_sdk.init(
-    dsn = f"{SENTRY_DSN}",
+    dsn = f"{SENTRY_DSN}"
 )
 
 # Execute the functions when the script is run

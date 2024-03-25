@@ -1,90 +1,8 @@
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE SCHEMA IF NOT EXISTS final AUTHORIZATION postgres;
 
--- CREATE SCHEMA FOR STAGING & FINAL(production)
-CREATE SCHEMA IF NOT EXISTS stg AUTHORIZATION postgres;
-CREATE SCHEMA IF NOT EXISTS prod AUTHORIZATION postgres;
-
--- Staging
-CREATE TABLE stg.category (
-    id uuid default uuid_generate_v4(),
-    category_id serial primary key NOT NULL,
-    "name" varchar(255) NOT NULL,
-    description text NULL,
-    created_at timestamp DEFAULT CURRENT_TIMESTAMP NULL,
-    updated_at timestamp DEFAULT CURRENT_TIMESTAMP NULL
-);
-
-CREATE TABLE stg.customer (
-    id uuid default uuid_generate_v4(),
-    customer_id serial primary key NOT NULL,
-    first_name varchar(255) NOT NULL,
-    last_name varchar(255) NOT NULL,
-    email varchar(255) NOT NULL,
-    phone varchar(100) NULL,
-    address text NULL,
-    created_at timestamp DEFAULT CURRENT_TIMESTAMP NULL,
-    updated_at timestamp DEFAULT CURRENT_TIMESTAMP NULL
-);
-
-CREATE TABLE stg.orders (
-    id uuid default uuid_generate_v4(),
-    order_id varchar(50) primary key NOT NULL,
-    customer_id int4 NULL,
-    order_date date NOT NULL,
-    status varchar(50) NOT NULL,
-    created_at timestamp DEFAULT CURRENT_TIMESTAMP NULL,
-    updated_at timestamp DEFAULT CURRENT_TIMESTAMP NULL
-);
-
-CREATE TABLE stg.order_detail (
-    id uuid default uuid_generate_v4(),
-    order_detail_id serial primary key NOT NULL,
-    order_id varchar(50) NULL,
-    product_id varchar(100) NULL,
-    quantity int4 NOT NULL,
-    price numeric(10, 2) NOT NULL,
-    created_at timestamp DEFAULT CURRENT_TIMESTAMP NULL,
-    updated_at timestamp DEFAULT CURRENT_TIMESTAMP NULL
-);
-
-CREATE TABLE stg.subcategory (
-    id uuid default uuid_generate_v4(),
-	subcategory_id serial primary key NOT NULL,
-	"name" varchar(255) NOT NULL,
-	category_id int4 NULL,
-	description text NULL,
-	created_at timestamp DEFAULT CURRENT_TIMESTAMP NULL,
-	updated_at timestamp DEFAULT CURRENT_TIMESTAMP NULL
-);
-
-CREATE TABLE stg.product (
-    id uuid default uuid_generate_v4(),
-    product_id varchar(100) primary key NOT NULL,
-    "name" text NOT NULL,
-    subcategory_id int4 NULL,
-    price numeric(10, 2) NOT NULL,
-    stock int4 NOT NULL,
-    created_at timestamp DEFAULT CURRENT_TIMESTAMP NULL,
-    updated_at timestamp DEFAULT CURRENT_TIMESTAMP NULL
-);
-
-ALTER TABLE stg.orders
-ADD FOREIGN KEY (customer_id) REFERENCES stg.customer(customer_id);
-
-ALTER TABLE stg.order_detail
-ADD FOREIGN KEY (order_id) REFERENCES stg.orders(order_id);
-
-ALTER TABLE stg.order_detail
-ADD FOREIGN KEY (product_id) REFERENCES stg.product(product_id);
-
-ALTER TABLE stg.subcategory
-ADD FOREIGN KEY (category_id) REFERENCES stg.category(category_id);
-
-ALTER TABLE stg.product
-ADD FOREIGN KEY (subcategory_id) REFERENCES stg.subcategory(subcategory_id);
-
--- Production
-CREATE TABLE prod.dim_customer(
+-- Final
+CREATE TABLE final.dim_customer(
     customer_id uuid primary key default uuid_generate_v4(),
     customer_nk int,
     first_name varchar(100),
@@ -96,7 +14,7 @@ CREATE TABLE prod.dim_customer(
     updated_at timestamp
 );
 
-CREATE TABLE prod.dim_product(
+CREATE TABLE final.dim_product(
     product_id uuid primary key default uuid_generate_v4(),
     product_nk varchar(100),
     name text,
@@ -110,7 +28,7 @@ CREATE TABLE prod.dim_product(
     updated_at timestamp
 );
 
-CREATE TABLE prod.dim_date(
+CREATE TABLE final.dim_date(
     date_id              	 INT NOT null primary KEY,
     date_actual              DATE NOT NULL,
     day_suffix               VARCHAR(4) NOT NULL,
@@ -138,21 +56,21 @@ CREATE TABLE prod.dim_date(
     weekend_indr             VARCHAR(20) NOT NULL
 );
 
-CREATE TABLE prod.fct_order(
+CREATE TABLE final.fct_order(
 	order_id uuid default uuid_generate_v4() ,
-	product_id uuid references prod.dim_product(product_id),
-	customer_id uuid references prod.dim_customer(customer_id),
-	date_id int references prod.dim_date(date_id),
+	product_id uuid references final.dim_product(product_id),
+	customer_id uuid references final.dim_customer(customer_id),
+	date_id int references final.dim_date(date_id),
 	quantity int,
 	status varchar(50),
 	created_at timestamp,
 	updated_at timestamp
 );
 
-CREATE UNIQUE INDEX idx_unique_order_product ON prod.fct_order (order_id, product_id, customer_id, date_id, quantity, status, created_at);
+CREATE UNIQUE INDEX idx_unique_order_product ON final.fct_order (order_id, product_id, customer_id, date_id, quantity, status, created_at);
 
 -- Populating for staging date dimension 
-INSERT INTO prod.dim_date
+INSERT INTO final.dim_date
 SELECT TO_CHAR(datum, 'yyyymmdd')::INT AS date_id,
        datum AS date_actual,
        TO_CHAR(datum, 'fmDDth') AS day_suffix,

@@ -1,6 +1,6 @@
 import os
 
-def delete_files_in_directory(directory):
+def delete_temp(directory):
     try:
         # List all files in the directory
         files = os.listdir(directory)

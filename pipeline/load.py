@@ -2,318 +2,263 @@ import luigi
 import logging
 import pandas as pd
 import time
+import sqlalchemy
 from datetime import datetime
 from pipeline.extract import Extract
 from pipeline.utils.db_conn import db_connection
 from pipeline.utils.read_sql import read_sql_file
-from pipeline.utils.concat_dataframe import concat_dataframes
-from pipeline.utils.copy_log import copy_log
+from sqlalchemy.orm import sessionmaker
+import os
 
-class Load(luigi.Task):
-    tables_to_extract = ['category', 'subcategory', 'customer', 'orders', 'product', 'order_detail']
-    current_local_time = datetime.now()
+# Define DIR
+DIR_ROOT_PROJECT = os.getenv("DIR_ROOT_PROJECT")
+DIR_TEMP_LOG = os.getenv("DIR_TEMP_LOG")
+DIR_TEMP_DATA = os.getenv("DIR_TEMP_DATA")
+DIR_LOAD_QUERY = os.getenv("DIR_LOAD_QUERY")
+DIR_LOG = os.getenv("DIR_LOG")
+
+class Load(luigi.Task):   
     
     def requires(self):
         return Extract()
     
     def run(self):
-        # Create summary for extract task
-        timestamp_data = [datetime.now()]
-        task_data = ['Load']
-        status_data = []
-        execution_time_data = []
-    
-        # Establish connections to source and DWH databases
-        try:
-            _, _, conn_dwh, cur_dwh = db_connection()
-            
-        except Exception:
-            raise Exception("Failed to connect to Data Warehouse")
-        
+         
         # Configure logging
-        logging.basicConfig(filename = '/home/laode/pacmann/project/orchestrate-elt-with-luigi/pipeline/temp/log/logs.log', 
+        logging.basicConfig(filename = f'{DIR_TEMP_LOG}/logs.log', 
                             level = logging.INFO, 
                             format = '%(asctime)s - %(levelname)s - %(message)s')
         
-        # Data to be loaded
+        #----------------------------------------------------------------------------------------------------------------------------------------
+        # Read query to be executed
         try:
+            # Read query to truncate public schema in dwh
+            truncate_query = read_sql_file(
+                file_path = f'{DIR_LOAD_QUERY}/public-truncate_tables.sql'
+            )
+            
+            # Read load query to staging schema
+            category_query = read_sql_file(
+                file_path = f'{DIR_LOAD_QUERY}/stg-category.sql'
+            )
+            
+            subcategory_query = read_sql_file(
+                file_path = f'{DIR_LOAD_QUERY}/stg-subcategory.sql'
+            )
+            
+            customer_query = read_sql_file(
+                file_path = f'{DIR_LOAD_QUERY}/stg-customer.sql'
+            )
+            
+            orders_query = read_sql_file(
+                file_path = f'{DIR_LOAD_QUERY}/stg-orders.sql'
+            )
+            
+            product_query = read_sql_file(
+                file_path = f'{DIR_LOAD_QUERY}/stg-product.sql'
+            )
+            
+            order_detail_query = read_sql_file(
+                file_path = f'{DIR_LOAD_QUERY}/stg-order_detail.sql'
+            )  
+            
+            logging.info("Read Load Query - SUCCESS")
+            
+        except Exception:
+            logging.error("Read Load Query - FAILED")
+            raise Exception("Failed to read Load Query")
+
+        #----------------------------------------------------------------------------------------------------------------------------------------
+        # Read Data to be load
+        try:
+            # Read csv
             category = pd.read_csv(self.input()[0].path)
             subcategory = pd.read_csv(self.input()[1].path)
             customer = pd.read_csv(self.input()[2].path)
             orders = pd.read_csv(self.input()[3].path)
             product = pd.read_csv(self.input()[4].path)
             order_detail = pd.read_csv(self.input()[5].path)
-
-        except Exception:
-            raise Exception("Failed to Read Extracted CSV")
-        
-        
-        # Define the query of each tables
-        try:
-            upsert_category_query = read_sql_file(
-                file_path = '/home/laode/pacmann/project/orchestrate-elt-with-luigi/pipeline/src_query/load/stg-category.sql'
-            )
-            upsert_subcategory_query = read_sql_file(
-                file_path = '/home/laode/pacmann/project/orchestrate-elt-with-luigi/pipeline/src_query/load/stg-subcategory.sql'
-            )
-            upsert_customer_query = read_sql_file(
-                file_path = '/home/laode/pacmann/project/orchestrate-elt-with-luigi/pipeline/src_query/load/stg-customer.sql'
-            )
-            upsert_orders_query = read_sql_file(
-                file_path = '/home/laode/pacmann/project/orchestrate-elt-with-luigi/pipeline/src_query/load/stg-orders.sql'
-            )
-            upsert_product_query = read_sql_file(
-                file_path = '/home/laode/pacmann/project/orchestrate-elt-with-luigi/pipeline/src_query/load/stg-product.sql'
-            )
-            upsert_order_detail_query = read_sql_file(
-                file_path = '/home/laode/pacmann/project/orchestrate-elt-with-luigi/pipeline/src_query/load/stg-order_detail.sql'
-            )
+            
+            logging.info(f"Read Extracted Data - SUCCESS")
             
         except Exception:
-            raise Exception("Failed to read SQL Query")
+            logging.error(f"Read Extracted Data  - FAILED")
+            raise Exception("Failed to Read Extracted Data")
         
-        start_time = time.time()  # Record start time
         
-        # Load to Database
+        #----------------------------------------------------------------------------------------------------------------------------------------
+        # Establish connections to DWH
         try:
-            # Load to 'category' Table
-            for index, row in category.iterrows():
-                # Extract values from the DataFrame row
-                category_id = row['category_id']
-                name = row['name']
-                description = row['description']
-                created_at = row['created_at']
-                updated_at = row['updated_at']
+            _, dwh_engine = db_connection()
+            logging.info(f"Connect to DWH - SUCCESS")
             
-                # Execute the upsert query
-                cur_dwh.execute(upsert_category_query.format(
-                    category_id = category_id,
-                    name = name,
-                    description = description,
-                    created_at = created_at,
-                    updated_at = updated_at,
-                    current_local_time = self.current_local_time
-                ))
+        except Exception:
+            logging.info(f"Connect to DWH - FAILED")
+            raise Exception("Failed to connect to Data Warehouse")
+        
+        
+        #----------------------------------------------------------------------------------------------------------------------------------------
+        # Truncate all tables before load
+        # This puropose to avoid errors because duplicate key value violates unique constraint
+        try:            
+            # Split the SQL queries if multiple queries are present
+            truncate_query = truncate_query.split(';')
 
-            # Commit the transaction
-            conn_dwh.commit()
+            # Remove newline characters and leading/trailing whitespaces
+            truncate_query = [query.strip() for query in truncate_query if query.strip()]
             
-            # Log success message
-            logging.info(f"LOAD category - SUCCESS")
+            # Create session
+            Session = sessionmaker(bind = dwh_engine)
+            session = Session()
 
-            # Load to 'subcategory' table
-            for index, row in subcategory.iterrows():
-                # Extract values from the DataFrame row
-                subcategory_id = row['subcategory_id']
-                name = row['name']
-                category_id = row['category_id']
-                description = row['description']
-                created_at = row['created_at']
-                updated_at = row['updated_at']
-
-                # Execute the upsert query
-                cur_dwh.execute(upsert_subcategory_query.format(
-                    subcategory_id = subcategory_id,
-                    name = name,
-                    category_id = category_id,
-                    description = description,
-                    created_at = created_at,
-                    updated_at = updated_at,
-                    current_local_time = self.current_local_time
-                ))
-
-            # Commit the transaction
-            conn_dwh.commit()
+            # Execute each query
+            for query in truncate_query:
+                query = sqlalchemy.text(query)
+                session.execute(query)
+                
+            session.commit()
             
-            # Log success message
-            logging.info(f"LOAD subcategory - SUCCESS")
-            
-            # Load to 'customer' table
-            for index, row in customer.iterrows():
-                # Extract values from the DataFrame row
-                customer_id = row['customer_id']
-                first_name = row['first_name']
-                last_name = row['last_name']
-                email = row['email']
-                phone = row['phone']
-                address = row['address']
-                created_at = row['created_at']
-                updated_at = row['updated_at']
+            # Close session
+            session.close()
 
-                # Execute the upsert query
-                cur_dwh.execute(upsert_customer_query.format(
-                    customer_id = customer_id,
-                    first_name = first_name,
-                    last_name = last_name,
-                    email = email,
-                    phone = phone,
-                    address = address,
-                    created_at = created_at,
-                    updated_at = updated_at,
-                    current_local_time = self.current_local_time
-                ))
-
-            # Commit the transaction
-            conn_dwh.commit()
+            logging.info(f"Truncate public Schema in DWH - SUCCESS")
+        
+        except Exception:
+            logging.error(f"Truncate public Schema in DWH - FAILED")
             
-            # Log success message
-            logging.info(f"LOAD customer - SUCCESS")
+            raise Exception("Failed to Truncate public Schema in DWH")
+        
+        
+        
+        #----------------------------------------------------------------------------------------------------------------------------------------
+        # Record start time for loading tables
+        start_time = time.time()  
+        logging.info("==================================STARTING LOAD DATA=======================================")
+        # Load to tables
+        try:
             
-            # Load to 'orders' table
-            for index, row in orders.iterrows():
-                # Extract values from the DataFrame row
-                order_id = row['order_id']
-                customer_id = row['customer_id']
-                order_date = row['order_date']
-                status = row['status']
-                created_at = row['created_at']
-                updated_at = row['updated_at']
-
-                # Execute the upsert query
-                cur_dwh.execute(upsert_orders_query.format(
-                    order_id = order_id,
-                    customer_id = customer_id,
-                    order_date = order_date,
-                    status = status,
-                    created_at = created_at,
-                    updated_at = updated_at,
-                    current_local_time = self.current_local_time
-                ))
-
-            # Commit the transaction
-            conn_dwh.commit()
+            try:
+                # Load to public schema
+                # Load category tables    
+                category.to_sql('category', 
+                                    con = dwh_engine, 
+                                    if_exists = 'append', 
+                                    index = False, 
+                                    schema = 'public')
+                
+                # Load subcategory tables
+                subcategory.to_sql('subcategory', 
+                                    con = dwh_engine, 
+                                    if_exists = 'append', 
+                                    index = False, 
+                                    schema = 'public')
+                
+                
+                # Load customer tables
+                customer.to_sql('customer', 
+                                con = dwh_engine, 
+                                if_exists = 'append', 
+                                index = False, 
+                                schema = 'public')
+                
+                # Load orders tables
+                orders.to_sql('orders', 
+                            con = dwh_engine, 
+                            if_exists = 'append', 
+                            index = False, 
+                            schema = 'public')
+                
+                
+                # Load product tables
+                product.to_sql('product', 
+                            con = dwh_engine, 
+                            if_exists = 'append', 
+                            index = False, 
+                            schema = 'public')
+                
+                
+                # Load order_detail tables
+                order_detail.to_sql('order_detail', 
+                            con = dwh_engine, 
+                            if_exists = 'append', 
+                            index = False, 
+                            schema = 'public')
+                logging.info(f"LOAD All Tables To DWH-Bookings - SUCCESS")
+                
+            except Exception:
+                logging.error(f"LOAD All Tables To DWH-Bookings - FAILED")
+                raise Exception('Failed Load Tables To DWH-Bookings')
             
-            # Log success message
-            logging.info(f"LOAD orders - SUCCESS")
             
-            # Load to 'product' table
-            for index, row in product.iterrows():
-                # Extract values from the DataFrame row
-                product_id = row['product_id']
-                name = row['name']
-                subcategory_id = row['subcategory_id']
-                price = row['price']
-                stock = row['stock']
-                created_at = row['created_at']
-                updated_at = row['updated_at']
+            #----------------------------------------------------------------------------------------------------------------------------------------
+            # Load to staging schema
+            try:
+                # List query
+                load_stg_queries = [category_query, subcategory_query, customer_query,
+                                    orders_query, product_query, order_detail_query]
+                
+                # Create session
+                Session = sessionmaker(bind = dwh_engine)
+                session = Session()
 
-                # Execute the upsert query
-                cur_dwh.execute(upsert_product_query.format(
-                    product_id = product_id,
-                    name = name,
-                    subcategory_id = subcategory_id,
-                    price = price,
-                    stock = stock,
-                    created_at = created_at,
-                    updated_at = updated_at,
-                    current_local_time = self.current_local_time
-                ))
-
-            # Commit the transaction
-            conn_dwh.commit()
-            
-            # Log success message
-            logging.info(f"LOAD product - SUCCESS")
-            
-            # Load to 'order_detail' table
-            for index, row in order_detail.iterrows():
-                # Extract values from the DataFrame row
-                order_detail_id = row['order_detail_id']
-                order_id = row['order_id']
-                product_id = row['product_id']
-                quantity = row['quantity']
-                price = row['price']
-                created_at = row['created_at']
-                updated_at = row['updated_at']
-
-                # Execute the upsert query
-                cur_dwh.execute(upsert_order_detail_query.format(
-                    order_detail_id = order_detail_id,
-                    order_id = order_id,
-                    product_id = product_id,
-                    quantity = quantity,
-                    price = price,
-                    created_at = created_at,
-                    updated_at = updated_at,
-                    current_local_time = self.current_local_time
-                ))
-
-            # Commit the transaction
-            conn_dwh.commit()
-            
-            end_time = time.time()  # Record end time
+                # Execute each query
+                for query in load_stg_queries:
+                    query = sqlalchemy.text(query)
+                    session.execute(query)
+                    
+                session.commit()
+                
+                # Close session
+                session.close()
+                
+                logging.info("LOAD All Tables To DWH-Staging - SUCCESS")
+                
+            except Exception:
+                logging.error("LOAD All Tables To DWH-Staging - FAILED")
+                raise Exception('Failed Load Tables To DWH-Staging')
+        
+        
+            # Record end time for loading tables
+            end_time = time.time()  
             execution_time = end_time - start_time  # Calculate execution time
             
             # Get summary
-            status_data.append('Success')
-            execution_time_data.append(execution_time)
-            
-            # Get summary dict
             summary_data = {
-                'timestamp': timestamp_data,
-                'task': task_data,
-                'status' : status_data,
-                'execution_time': execution_time_data
+                'timestamp': [datetime.now()],
+                'task': ['Load'],
+                'status' : ['Success'],
+                'execution_time': [execution_time]
             }
-            
-            # Get summary dataframes
-            summary = pd.DataFrame(summary_data)
-            
-            # Write DataFrame to CSV
-            summary.to_csv(f"/home/laode/pacmann/project/orchestrate-elt-with-luigi/pipeline/temp/data/load-summary.csv", index = False)
-            
-            # Log success message
-            logging.info(f"LOAD order_detail - SUCCESS")
-            
-            # Close the cursor and connection
-            conn_dwh.close()
-            cur_dwh.close()
-        
-        except Exception:
-            start_time = time.time() # Record start time
-            end_time = time.time()  # Record end time
-            execution_time = end_time - start_time  # Calculate execution time
-            
-            # Get summary
-            status_data.append('Failed')
-            execution_time_data.append(execution_time)
-            
-            # Get summary dict
-            summary_data = {
-                'timestamp': timestamp_data,
-                'task': task_data,
-                'status' : status_data,
-                'execution_time': execution_time_data
-            }
-            
-            # Get summary dataframes
-            summary = pd.DataFrame(summary_data)
-            
-            # Write DataFrame to CSV
-            summary.to_csv(f"/home/laode/pacmann/project/orchestrate-elt-with-luigi/pipeline/temp/data/load-summary.csv", index = False)
-            
-            raise Exception('Failed to Load Tables')
 
+            # Get summary dataframes
+            summary = pd.DataFrame(summary_data)
+            
+            # Write Summary to CSV
+            summary.to_csv(f"{DIR_TEMP_DATA}/load-summary.csv", index = False)
+            
+                        
+        #----------------------------------------------------------------------------------------------------------------------------------------
+        except Exception:
+            # Get summary
+            summary_data = {
+                'timestamp': [datetime.now()],
+                'task': ['Load'],
+                'status' : ['Failed'],
+                'execution_time': [0]
+            }
+
+            # Get summary dataframes
+            summary = pd.DataFrame(summary_data)
+            
+            # Write Summary to CSV
+            summary.to_csv(f"{DIR_TEMP_DATA}/load-summary.csv", index = False)
+            
+            logging.error("LOAD All Tables To DWH - FAILED")
+            raise Exception('Failed Load Tables To DWH')   
+        
+        logging.info("==================================ENDING LOAD DATA=======================================")
+        
+    #----------------------------------------------------------------------------------------------------------------------------------------
     def output(self):
-        return [luigi.LocalTarget(f'/home/laode/pacmann/project/orchestrate-elt-with-luigi/pipeline/temp/log/logs.log'),
-                luigi.LocalTarget(f'/home/laode/pacmann/project/orchestrate-elt-with-luigi/pipeline/temp/data/load-summary.csv')]
-  
-# Execute the functions when the script is run
-if __name__ == "__main__":
-    luigi.build([Extract(),
-                 Load()])
-    
-    concat_dataframes(
-        df1 = pd.read_csv('/home/laode/pacmann/project/orchestrate-elt-with-luigi/pipeline_summary.csv'),
-        df2 = pd.read_csv('/home/laode/pacmann/project/orchestrate-elt-with-luigi/pipeline/temp/data/extract-summary.csv')
-    )
-    
-    concat_dataframes(
-        df1 = pd.read_csv('/home/laode/pacmann/project/orchestrate-elt-with-luigi/pipeline_summary.csv'),
-        df2 = pd.read_csv('/home/laode/pacmann/project/orchestrate-elt-with-luigi/pipeline/temp/data/load-summary.csv')
-    )
-    
-    copy_log(
-        source_file = '/home/laode/pacmann/project/orchestrate-elt-with-luigi/temp/log/logs.log',
-        destination_file = '/home/laode/pacmann/project/orchestrate-elt-with-luigi/logs/logs.log'
-    )
+        return [luigi.LocalTarget(f'{DIR_TEMP_LOG}/logs.log'),
+                luigi.LocalTarget(f'{DIR_TEMP_DATA}/load-summary.csv')]

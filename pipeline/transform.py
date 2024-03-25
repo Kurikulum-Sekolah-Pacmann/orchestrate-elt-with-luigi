@@ -1,166 +1,159 @@
 import luigi
 import logging
 import pandas as pd
+import time
+import sqlalchemy
 from datetime import datetime
-from pipeline.load import Load
 from pipeline.extract import Extract
+from pipeline.load import Load
 from pipeline.utils.db_conn import db_connection
 from pipeline.utils.read_sql import read_sql_file
-from pipeline.utils.concat_dataframe import concat_dataframes
-from pipeline.utils.copy_log import copy_log
-from pipeline.utils.delete_files_in_directory import delete_files_in_directory
-import time
+from sqlalchemy.orm import sessionmaker
+import os
+
+# Define DIR
+DIR_ROOT_PROJECT = os.getenv("DIR_ROOT_PROJECT")
+DIR_TEMP_LOG = os.getenv("DIR_TEMP_LOG")
+DIR_TEMP_DATA = os.getenv("DIR_TEMP_DATA")
+DIR_TRANSFORM_QUERY = os.getenv("DIR_TRANSFORM_QUERY")
+DIR_LOG = os.getenv("DIR_LOG")
 
 class Transform(luigi.Task):
-    current_local_time = datetime.now()
     
     def requires(self):
         return Load()
     
     def run(self):
-        # Create summary for extract task
-        timestamp_data = [datetime.now()]
-        task_data = ['Transform']
-        status_data = []
-        execution_time_data = []
+         
+        # Configure logging
+        logging.basicConfig(filename = f'{DIR_TEMP_LOG}/logs.log', 
+                            level = logging.INFO, 
+                            format = '%(asctime)s - %(levelname)s - %(message)s')
         
+        #----------------------------------------------------------------------------------------------------------------------------------------
+        # Establish connections to DWH
         try:
+            _, dwh_engine = db_connection()
+            logging.info(f"Connect to DWH - SUCCESS")
             
-            # Configure logging
-            logging.basicConfig(filename = '/home/laode/pacmann/project/orchestrate-elt-with-luigi/pipeline/temp/log/logs.log', 
-                                level = logging.INFO, 
-                                format = '%(asctime)s - %(levelname)s - %(message)s')
+        except Exception:
+            logging.info(f"Connect to DWH - FAILED")
+            raise Exception("Failed to connect to Data Warehouse")
+        
+        #----------------------------------------------------------------------------------------------------------------------------------------
+        # Read query to be executed
+        try:
+            # Read query to truncate fact tables in dwh
+            truncate_query = read_sql_file(
+                file_path = f'{DIR_TRANSFORM_QUERY}/truncate-fact-tables.sql'
+            )
+            
+            # Read transform query to final schema
+            dim_customer_query = read_sql_file(
+                file_path = f'{DIR_TRANSFORM_QUERY}/dim_customer.sql'
+            )
+            
+            dim_product_query = read_sql_file(
+                file_path = f'{DIR_TRANSFORM_QUERY}/dim_product.sql'
+            )
+            
+            fct_order_query = read_sql_file(
+                file_path = f'{DIR_TRANSFORM_QUERY}/fct_order.sql'
+            )
+            
+            logging.info("Read Transform Query - SUCCESS")
+            
+        except Exception:
+            logging.error("Read Transform Query - FAILED")
+            raise Exception("Failed to read Transform Query")        
+        
+        #----------------------------------------------------------------------------------------------------------------------------------------
+        # Record start time for transform tables
+        start_time = time.time()
+        logging.info("==================================STARTING TRANSFROM DATA=======================================")  
                
-            # Establish connections to source and DWH databases
-            _, _, conn_dwh, cur_dwh = db_connection()
+        # Transform to dimensions tables
+        try:
+            # Create session
+            Session = sessionmaker(bind = dwh_engine)
+            session = Session()
             
-            # Define the query of each tables
-            upsert_dim_customer_query = read_sql_file(
-                file_path = '/home/laode/pacmann/project/orchestrate-elt-with-luigi/pipeline/src_query/transform/prod-dim_customer.sql'
-            )
-            upsert_dim_product_query = read_sql_file(
-                file_path = '/home/laode/pacmann/project/orchestrate-elt-with-luigi/pipeline/src_query/transform/prod-dim_product.sql'
-            )
-            upsert_fct_order_query = read_sql_file(
-                file_path = '/home/laode/pacmann/project/orchestrate-elt-with-luigi/pipeline/src_query/transform/prod-fct_order.sql'
-            )
+            # Transform to final.dim_customer
+            query = sqlalchemy.text(dim_customer_query)
+            session.execute(query)
+            logging.info("Transform to 'final.dim_customer' - SUCCESS")
             
-            # Store all query in list
-            all_query = [upsert_dim_customer_query, upsert_dim_product_query, upsert_fct_order_query]
+            # Transform to final.dim_product
+            query = sqlalchemy.text(dim_product_query)
+            session.execute(query)
+            logging.info("Transform to 'final.dim_product' - SUCCESS")
             
-            # Table name
-            table_name = ['dim_customer', 'dim_product', 'fct_order']
-            
-            start_time = time.time()  # Record start time
-            
-            try:
-                # Lopp throug each query
-                for list_index in range(3):
-                    try:
-                        start_time = time.time()  # Record start time
-                        
-                        # Execute the upsert query
-                        cur_dwh.execute(all_query[list_index].format(
-                            current_local_time = self.current_local_time
-                        ))
-                        
-                        # Commit the transaction
-                        conn_dwh.commit()
-                        
-                        # Log success message
-                        logging.info(f"Transform {table_name[list_index]} - SUCCESS")
-                        
-                    except Exception:
-                        logging.info(f"Transform {table_name[list_index]} - FAILED")
-                        print(f"Error Transforming data: {e}")
-                    
-                end_time = time.time()  # Record end time
-                execution_time = end_time - start_time  # Calculate execution time
-                
-                # Get summary
-                status_data.append('Success')
-                execution_time_data.append(execution_time)
-                
-                # Get summary dict
-                summary_data = {
-                    'timestamp': timestamp_data,
-                    'task': task_data,
-                    'status' : status_data,
-                    'execution_time': execution_time_data
-                }
-                
-                # Get summary dataframes
-                summary = pd.DataFrame(summary_data)
-                
-                # Write DataFrame to CSV
-                summary.to_csv('/home/laode/pacmann/project/orchestrate-elt-with-luigi/pipeline/temp/data/transform-summary.csv', index = False)
-        
-            except Exception as e:
-                start_time = time.time() # Record start time
-                end_time = time.time()  # Record end time
-                execution_time = end_time - start_time  # Calculate execution time
-                
-                # Get summary
-                status_data.append('Success')
-                execution_time_data.append(execution_time)
-                
-                # Get summary dict
-                summary_data = {
-                    'timestamp': timestamp_data,
-                    'task': task_data,
-                    'status' : status_data,
-                    'execution_time': execution_time_data
-                }
-                
-                # Get summary dataframes
-                summary = pd.DataFrame(summary_data)
-                
-                # Write DataFrame to CSV
-                summary.to_csv('/home/laode/pacmann/project/orchestrate-elt-with-luigi/pipeline/temp/data/transform-summary.csv', index = False)
-        
-                logging.info(f"Transform  - FAILED")
-                    
-            # Close the cursor and connection
-            conn_dwh.close()
-            cur_dwh.close()
+            # Truncate fact tables
+            # Split the SQL queries if multiple queries are present
+            truncate_query = truncate_query.split(';')
 
-        except Exception as e:
-            print(f"Error during data transformation: {e}")
+            # Remove newline characters and leading/trailing whitespaces
+            truncate_query = [query.strip() for query in truncate_query if query.strip()]
             
+            for query in truncate_query:
+                query = sqlalchemy.text(query)
+                session.execute(query)
+            logging.info("Truncate Fact Tables - SUCCESS")
+            
+            # Transform to final.fct_order
+            query = sqlalchemy.text(fct_order_query)
+            session.execute(query)
+            logging.info("Transform to 'final.dim_product' - SUCCESS")
+            
+            # Commit transaction
+            session.commit()
+            
+            # Close session
+            session.close()
+
+            logging.info(f"Transform to All Dimensions and Fact Tables - SUCCESS")
+            
+            # Record end time for loading tables
+            end_time = time.time()  
+            execution_time = end_time - start_time  # Calculate execution time
+            
+            # Get summary
+            summary_data = {
+                'timestamp': [datetime.now()],
+                'task': ['Transform'],
+                'status' : ['Success'],
+                'execution_time': [execution_time]
+            }
+
+            # Get summary dataframes
+            summary = pd.DataFrame(summary_data)
+            
+            # Write Summary to CSV
+            summary.to_csv(f"{DIR_TEMP_DATA}/transform-summary.csv", index = False)
+            
+        except Exception:
+            logging.error(f"Transform to All Dimensions and Fact Tables - FAILED")
+        
+            # Get summary
+            summary_data = {
+                'timestamp': [datetime.now()],
+                'task': ['Transform'],
+                'status' : ['Failed'],
+                'execution_time': [0]
+            }
+
+            # Get summary dataframes
+            summary = pd.DataFrame(summary_data)
+            
+            # Write Summary to CSV
+            summary.to_csv(f"{DIR_TEMP_DATA}/transform-summary.csv", index = False)
+            
+            logging.error("Transform Tables - FAILED")
+            raise Exception('Failed Transforming Tables')   
+        
+        logging.info("==================================ENDING TRANSFROM DATA=======================================") 
+
+    #----------------------------------------------------------------------------------------------------------------------------------------
     def output(self):
-        return [luigi.LocalTarget('/home/laode/pacmann/project/orchestrate-elt-with-luigi/temp/log/logs.log'),
-                luigi.LocalTarget('/home/laode/pacmann/project/orchestrate-elt-with-luigi/pipeline/temp/data/transform-summary.csv')]
-            
-# Execute the functions when the script is run
-if __name__ == "__main__":
-    luigi.build([Extract(),
-                 Load(),
-                 Transform()])
-    
-    concat_dataframes(
-        df1 = pd.read_csv('/home/laode/pacmann/project/orchestrate-elt-with-luigi/pipeline_summary.csv'),
-        df2 = pd.read_csv('/home/laode/pacmann/project/orchestrate-elt-with-luigi/pipeline/temp/data/extract-summary.csv')
-    )
-    
-    concat_dataframes(
-        df1 = pd.read_csv('/home/laode/pacmann/project/orchestrate-elt-with-luigi/pipeline_summary.csv'),
-        df2 = pd.read_csv('/home/laode/pacmann/project/orchestrate-elt-with-luigi/pipeline/temp/data/load-summary.csv')
-    )
-    
-    concat_dataframes(
-        df1 = pd.read_csv('/home/laode/pacmann/project/orchestrate-elt-with-luigi/pipeline_summary.csv'),
-        df2 = pd.read_csv('/home/laode/pacmann/project/orchestrate-elt-with-luigi/pipeline/temp/data/transform-summary.csv')
-    )
-    
-    copy_log(
-        source_file = '/home/laode/pacmann/project/orchestrate-elt-with-luigi/pipeline/temp/log/logs.log',
-        destination_file = '/home/laode/pacmann/project/orchestrate-elt-with-luigi/logs/logs.log'
-    )
-    
-    delete_files_in_directory(
-        directory = '/home/laode/pacmann/project/orchestrate-elt-with-luigi/pipeline/temp/data'
-    )
-    
-    delete_files_in_directory(
-        directory = '/home/laode/pacmann/project/orchestrate-elt-with-luigi/pipeline/temp/log'
-    )
+        return [luigi.LocalTarget(f'{DIR_TEMP_LOG}/logs.log'),
+                luigi.LocalTarget(f'{DIR_TEMP_DATA}/transform-summary.csv')]

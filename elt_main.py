@@ -27,7 +27,7 @@ if __name__ == "__main__":
     # Build the task
     luigi.build([Extract(),
                  Load(),
-                 Transform()])
+                 Transform()], local_scheduler = True)
     
     # Concat temp extract summary to final summary
     concat_dataframes(

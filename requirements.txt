@@ -1,5 +1,5 @@
 luigi==3.5.0
 pandas==2.2.1
-psycopg2_binary==2.9.9
 python-dotenv==1.0.1
 sentry_sdk==1.42.0
+SQLAlchemy==2.0.29

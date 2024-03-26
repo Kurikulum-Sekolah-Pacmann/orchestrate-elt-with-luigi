@@ -1,11 +1,7 @@
 from sqlalchemy import create_engine
 import warnings
 warnings.filterwarnings('ignore')
-from dotenv import load_dotenv
 import os
-
-# Load environment variables from .env file
-load_dotenv()
 
 def db_connection():
     try:

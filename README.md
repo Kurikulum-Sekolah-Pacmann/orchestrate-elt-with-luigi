@@ -96,10 +96,10 @@
 
 ### Result
 - Pipeline
-    - ![alt text](https://github.com/rahilaode/pacflight_data-pipeline-orchestration/blob/main/img_assets/luigi.png)
+    - ![alt text](https://github.com/rahilaode/orchestrate-elt-with-luigi/blob/master/img_asset/luigi.png)
 
 - Log
-    - ![alt text](https://github.com/rahilaode/pacflight_data-pipeline-orchestration/blob/main/img_assets/log.png)
+    - ![alt text](https://github.com/rahilaode/orchestrate-elt-with-luigi/blob/master/img_asset/log.png)
 
 - Summary
-    - ![alt text](https://github.com/rahilaode/pacflight_data-pipeline-orchestration/blob/main/img_assets/summary.png)
+    - ![alt text](https://github.com/rahilaode/orchestrate-elt-with-luigi/blob/master/img_asset/pipeline-summary.png)

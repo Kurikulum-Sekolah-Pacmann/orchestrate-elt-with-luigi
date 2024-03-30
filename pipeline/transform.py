@@ -10,6 +10,10 @@ from pipeline.utils.db_conn import db_connection
 from pipeline.utils.read_sql import read_sql_file
 from sqlalchemy.orm import sessionmaker
 import os
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Define DIR
 DIR_ROOT_PROJECT = os.getenv("DIR_ROOT_PROJECT")
@@ -43,10 +47,6 @@ class Transform(luigi.Task):
         #----------------------------------------------------------------------------------------------------------------------------------------
         # Read query to be executed
         try:
-            # Read query to truncate fact tables in dwh
-            truncate_query = read_sql_file(
-                file_path = f'{DIR_TRANSFORM_QUERY}/truncate-fact-tables.sql'
-            )
             
             # Read transform query to final schema
             dim_customer_query = read_sql_file(
@@ -87,18 +87,6 @@ class Transform(luigi.Task):
             query = sqlalchemy.text(dim_product_query)
             session.execute(query)
             logging.info("Transform to 'final.dim_product' - SUCCESS")
-            
-            # Truncate fact tables
-            # Split the SQL queries if multiple queries are present
-            truncate_query = truncate_query.split(';')
-
-            # Remove newline characters and leading/trailing whitespaces
-            truncate_query = [query.strip() for query in truncate_query if query.strip()]
-            
-            for query in truncate_query:
-                query = sqlalchemy.text(query)
-                session.execute(query)
-            logging.info("Truncate Fact Tables - SUCCESS")
             
             # Transform to final.fct_order
             query = sqlalchemy.text(fct_order_query)

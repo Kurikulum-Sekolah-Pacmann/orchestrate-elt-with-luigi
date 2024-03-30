@@ -7,8 +7,8 @@ CREATE TABLE stg.category (
     category_id serial primary key NOT NULL,
     "name" varchar(255) NOT NULL,
     description text NULL,
-    created_at timestamp DEFAULT CURRENT_TIMESTAMP NULL,
-    updated_at timestamp DEFAULT CURRENT_TIMESTAMP NULL
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE stg.customer (
@@ -19,8 +19,8 @@ CREATE TABLE stg.customer (
     email varchar(255) NOT NULL,
     phone varchar(100) NULL,
     address text NULL,
-    created_at timestamp DEFAULT CURRENT_TIMESTAMP NULL,
-    updated_at timestamp DEFAULT CURRENT_TIMESTAMP NULL
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE stg.orders (
@@ -29,8 +29,8 @@ CREATE TABLE stg.orders (
     customer_id int4 NULL,
     order_date date NOT NULL,
     status varchar(50) NOT NULL,
-    created_at timestamp DEFAULT CURRENT_TIMESTAMP NULL,
-    updated_at timestamp DEFAULT CURRENT_TIMESTAMP NULL
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE stg.order_detail (
@@ -40,8 +40,8 @@ CREATE TABLE stg.order_detail (
     product_id varchar(100) NULL,
     quantity int4 NOT NULL,
     price numeric(10, 2) NOT NULL,
-    created_at timestamp DEFAULT CURRENT_TIMESTAMP NULL,
-    updated_at timestamp DEFAULT CURRENT_TIMESTAMP NULL
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE stg.subcategory (
@@ -61,8 +61,8 @@ CREATE TABLE stg.product (
     subcategory_id int4 NULL,
     price numeric(10, 2) NOT NULL,
     stock int4 NOT NULL,
-    created_at timestamp DEFAULT CURRENT_TIMESTAMP NULL,
-    updated_at timestamp DEFAULT CURRENT_TIMESTAMP NULL
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 ALTER TABLE stg.orders

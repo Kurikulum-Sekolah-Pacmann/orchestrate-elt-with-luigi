@@ -10,8 +10,8 @@ CREATE TABLE final.dim_customer(
     email varchar(100),
     phone varchar(100),
     address varchar(100),
-    created_at timestamp,
-    updated_at timestamp
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE final.dim_product(
@@ -24,8 +24,8 @@ CREATE TABLE final.dim_product(
     category_desc text,
     subcategory_name varchar(255),
     subcategory_desc text,
-    created_at timestamp,
-    updated_at timestamp
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE final.dim_date(
@@ -63,8 +63,8 @@ CREATE TABLE final.fct_order(
 	date_id int references final.dim_date(date_id),
 	quantity int,
 	status varchar(50),
-	created_at timestamp,
-	updated_at timestamp
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE UNIQUE INDEX idx_unique_order_product ON final.fct_order (order_id, product_id, customer_id, date_id, quantity, status, created_at);
@@ -108,3 +108,7 @@ FROM (SELECT '1998-01-01'::DATE + SEQUENCE.DAY AS datum
       FROM GENERATE_SERIES(0, 29219) AS SEQUENCE (DAY)
       GROUP BY SEQUENCE.DAY) DQ
 ORDER BY 1;
+
+-- Add Unique Constraints to fact tables
+ALTER TABLE final.fct_order
+ADD CONSTRAINT fct_order_unique UNIQUE (order_id);

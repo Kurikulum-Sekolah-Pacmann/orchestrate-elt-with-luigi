@@ -6,6 +6,10 @@ import pandas as pd
 import os
 from pipeline.utils.db_conn import db_connection
 from pipeline.utils.read_sql import read_sql_file
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Define DIR
 DIR_ROOT_PROJECT = os.getenv("DIR_ROOT_PROJECT")

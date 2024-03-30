@@ -1,0 +1,114 @@
+2024-03-30 08:34:02,418 - INFO - ==================================STARTING EXTRACT DATA=======================================
+2024-03-30 08:34:02,460 - INFO - EXTRACT 'public.category' - SUCCESS.
+2024-03-30 08:34:02,467 - INFO - EXTRACT 'public.subcategory' - SUCCESS.
+2024-03-30 08:34:02,482 - INFO - EXTRACT 'public.customer' - SUCCESS.
+2024-03-30 08:34:02,495 - INFO - EXTRACT 'public.orders' - SUCCESS.
+2024-03-30 08:34:02,520 - INFO - EXTRACT 'public.product' - SUCCESS.
+2024-03-30 08:34:02,574 - INFO - EXTRACT 'public.order_detail' - SUCCESS.
+2024-03-30 08:34:02,576 - INFO - Extract All Tables From Sources - SUCCESS
+2024-03-30 08:34:02,586 - INFO - ==================================ENDING EXTRACT DATA=======================================
+2024-03-30 08:34:02,587 - INFO - [pid 23130] Worker Worker(salt=5566453800, workers=1, host=DESKTOP-V42S030, username=laode, pid=23130) done      Extract()
+2024-03-30 08:34:02,614 - DEBUG - 1 running tasks, waiting for next task to finish
+2024-03-30 08:34:02,623 - INFO - Informed scheduler that task   Extract__99914b932b   has status   DONE
+2024-03-30 08:34:02,623 - DEBUG - Asking scheduler for work...
+2024-03-30 08:34:02,630 - DEBUG - Pending tasks: 2
+2024-03-30 08:34:02,630 - INFO - [pid 23130] Worker Worker(salt=5566453800, workers=1, host=DESKTOP-V42S030, username=laode, pid=23130) running   Load()
+2024-03-30 08:34:02,631 - INFO - Read Load Query - SUCCESS
+2024-03-30 08:34:02,674 - INFO - Read Extracted Data - SUCCESS
+2024-03-30 08:34:02,676 - INFO - Connect to DWH - SUCCESS
+2024-03-30 08:34:02,787 - INFO - Truncate public Schema in DWH - SUCCESS
+2024-03-30 08:34:02,787 - INFO - ==================================STARTING LOAD DATA=======================================
+2024-03-30 08:34:03,152 - INFO - LOAD All Tables To DWH-Bookings - SUCCESS
+2024-03-30 08:34:03,369 - INFO - LOAD All Tables To DWH-Staging - SUCCESS
+2024-03-30 08:34:03,371 - INFO - ==================================ENDING LOAD DATA=======================================
+2024-03-30 08:34:03,372 - INFO - [pid 23130] Worker Worker(salt=5566453800, workers=1, host=DESKTOP-V42S030, username=laode, pid=23130) done      Load()
+2024-03-30 08:34:03,373 - DEBUG - 1 running tasks, waiting for next task to finish
+2024-03-30 08:34:03,376 - INFO - Informed scheduler that task   Load__99914b932b   has status   DONE
+2024-03-30 08:34:03,376 - DEBUG - Asking scheduler for work...
+2024-03-30 08:34:03,379 - DEBUG - Pending tasks: 1
+2024-03-30 08:34:03,380 - INFO - [pid 23130] Worker Worker(salt=5566453800, workers=1, host=DESKTOP-V42S030, username=laode, pid=23130) running   Transform()
+2024-03-30 08:34:03,381 - INFO - Connect to DWH - SUCCESS
+2024-03-30 08:34:03,381 - INFO - Read Transform Query - SUCCESS
+2024-03-30 08:34:03,381 - INFO - ==================================STARTING TRANSFROM DATA=======================================
+2024-03-30 08:34:03,407 - INFO - Transform to 'final.dim_customer' - SUCCESS
+2024-03-30 08:34:03,425 - INFO - Transform to 'final.dim_product' - SUCCESS
+2024-03-30 08:34:03,475 - INFO - Transform to 'final.dim_product' - SUCCESS
+2024-03-30 08:34:03,485 - INFO - Transform to All Dimensions and Fact Tables - SUCCESS
+2024-03-30 08:34:03,486 - INFO - ==================================ENDING TRANSFROM DATA=======================================
+2024-03-30 08:34:03,486 - INFO - [pid 23130] Worker Worker(salt=5566453800, workers=1, host=DESKTOP-V42S030, username=laode, pid=23130) done      Transform()
+2024-03-30 08:34:03,487 - DEBUG - 1 running tasks, waiting for next task to finish
+2024-03-30 08:34:03,490 - INFO - Informed scheduler that task   Transform__99914b932b   has status   DONE
+2024-03-30 08:34:03,490 - DEBUG - Asking scheduler for work...
+2024-03-30 08:34:03,494 - DEBUG - Done
+2024-03-30 08:34:03,494 - DEBUG - There are no more tasks to run at this time
+2024-03-30 08:34:03,494 - INFO - Worker Worker(salt=5566453800, workers=1, host=DESKTOP-V42S030, username=laode, pid=23130) was stopped. Shutting down Keep-Alive thread
+2024-03-30 08:34:03,495 - INFO - 
+===== Luigi Execution Summary =====
+
+Scheduled 3 tasks of which:
+* 3 ran successfully:
+    - 1 Extract()
+    - 1 Load()
+    - 1 Transform()
+
+This progress looks :) because there were no failed tasks or missing dependencies
+
+===== Luigi Execution Summary =====
+
+2024-03-30 08:35:02,822 - INFO - ==================================STARTING EXTRACT DATA=======================================
+2024-03-30 08:35:02,850 - INFO - EXTRACT 'public.category' - SUCCESS.
+2024-03-30 08:35:02,858 - INFO - EXTRACT 'public.subcategory' - SUCCESS.
+2024-03-30 08:35:02,873 - INFO - EXTRACT 'public.customer' - SUCCESS.
+2024-03-30 08:35:02,885 - INFO - EXTRACT 'public.orders' - SUCCESS.
+2024-03-30 08:35:02,906 - INFO - EXTRACT 'public.product' - SUCCESS.
+2024-03-30 08:35:02,939 - INFO - EXTRACT 'public.order_detail' - SUCCESS.
+2024-03-30 08:35:02,939 - INFO - Extract All Tables From Sources - SUCCESS
+2024-03-30 08:35:02,941 - INFO - ==================================ENDING EXTRACT DATA=======================================
+2024-03-30 08:35:02,941 - INFO - [pid 23839] Worker Worker(salt=7106152186, workers=1, host=DESKTOP-V42S030, username=laode, pid=23839) done      Extract()
+2024-03-30 08:35:02,942 - DEBUG - 1 running tasks, waiting for next task to finish
+2024-03-30 08:35:02,947 - INFO - Informed scheduler that task   Extract__99914b932b   has status   DONE
+2024-03-30 08:35:02,947 - DEBUG - Asking scheduler for work...
+2024-03-30 08:35:02,950 - DEBUG - Pending tasks: 2
+2024-03-30 08:35:02,951 - INFO - [pid 23839] Worker Worker(salt=7106152186, workers=1, host=DESKTOP-V42S030, username=laode, pid=23839) running   Load()
+2024-03-30 08:35:02,951 - INFO - Read Load Query - SUCCESS
+2024-03-30 08:35:02,979 - INFO - Read Extracted Data - SUCCESS
+2024-03-30 08:35:02,981 - INFO - Connect to DWH - SUCCESS
+2024-03-30 08:35:03,062 - INFO - Truncate public Schema in DWH - SUCCESS
+2024-03-30 08:35:03,063 - INFO - ==================================STARTING LOAD DATA=======================================
+2024-03-30 08:35:03,454 - INFO - LOAD All Tables To DWH-Bookings - SUCCESS
+2024-03-30 08:35:03,614 - INFO - LOAD All Tables To DWH-Staging - SUCCESS
+2024-03-30 08:35:03,617 - INFO - ==================================ENDING LOAD DATA=======================================
+2024-03-30 08:35:03,618 - INFO - [pid 23839] Worker Worker(salt=7106152186, workers=1, host=DESKTOP-V42S030, username=laode, pid=23839) done      Load()
+2024-03-30 08:35:03,619 - DEBUG - 1 running tasks, waiting for next task to finish
+2024-03-30 08:35:03,623 - INFO - Informed scheduler that task   Load__99914b932b   has status   DONE
+2024-03-30 08:35:03,623 - DEBUG - Asking scheduler for work...
+2024-03-30 08:35:03,627 - DEBUG - Pending tasks: 1
+2024-03-30 08:35:03,628 - INFO - [pid 23839] Worker Worker(salt=7106152186, workers=1, host=DESKTOP-V42S030, username=laode, pid=23839) running   Transform()
+2024-03-30 08:35:03,630 - INFO - Connect to DWH - SUCCESS
+2024-03-30 08:35:03,630 - INFO - Read Transform Query - SUCCESS
+2024-03-30 08:35:03,631 - INFO - ==================================STARTING TRANSFROM DATA=======================================
+2024-03-30 08:35:03,661 - INFO - Transform to 'final.dim_customer' - SUCCESS
+2024-03-30 08:35:03,677 - INFO - Transform to 'final.dim_product' - SUCCESS
+2024-03-30 08:35:03,730 - INFO - Transform to 'final.dim_product' - SUCCESS
+2024-03-30 08:35:03,740 - INFO - Transform to All Dimensions and Fact Tables - SUCCESS
+2024-03-30 08:35:03,745 - INFO - ==================================ENDING TRANSFROM DATA=======================================
+2024-03-30 08:35:03,746 - INFO - [pid 23839] Worker Worker(salt=7106152186, workers=1, host=DESKTOP-V42S030, username=laode, pid=23839) done      Transform()
+2024-03-30 08:35:03,746 - DEBUG - 1 running tasks, waiting for next task to finish
+2024-03-30 08:35:03,752 - INFO - Informed scheduler that task   Transform__99914b932b   has status   DONE
+2024-03-30 08:35:03,752 - DEBUG - Asking scheduler for work...
+2024-03-30 08:35:03,756 - DEBUG - Done
+2024-03-30 08:35:03,756 - DEBUG - There are no more tasks to run at this time
+2024-03-30 08:35:03,756 - INFO - Worker Worker(salt=7106152186, workers=1, host=DESKTOP-V42S030, username=laode, pid=23839) was stopped. Shutting down Keep-Alive thread
+2024-03-30 08:35:03,757 - INFO - 
+===== Luigi Execution Summary =====
+
+Scheduled 3 tasks of which:
+* 3 ran successfully:
+    - 1 Extract()
+    - 1 Load()
+    - 1 Transform()
+
+This progress looks :) because there were no failed tasks or missing dependencies
+
+===== Luigi Execution Summary =====
+

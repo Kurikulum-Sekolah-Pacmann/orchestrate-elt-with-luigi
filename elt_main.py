@@ -10,6 +10,11 @@ from pipeline.utils.concat_dataframe import concat_dataframes
 from pipeline.utils.copy_log import copy_log
 from pipeline.utils.delete_temp_data import delete_temp
 
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
+
 # Read env variables
 DIR_ROOT_PROJECT = os.getenv("DIR_ROOT_PROJECT")
 DIR_TEMP_LOG = os.getenv("DIR_TEMP_LOG")

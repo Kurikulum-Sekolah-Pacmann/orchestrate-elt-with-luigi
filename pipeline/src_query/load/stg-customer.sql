@@ -1,5 +1,5 @@
 INSERT INTO stg.customer 
-    (customer_id, first_name, last_name, email, phone, address, created_at, updated_at)
+    (customer_id, first_name, last_name, email, phone, address)
 
 SELECT
     customer_id, 
@@ -7,9 +7,7 @@ SELECT
     last_name, 
     email, 
     phone, 
-    address, 
-    created_at, 
-    updated_at
+    address
 
 FROM public.customer
 
@@ -20,5 +18,14 @@ DO UPDATE SET
     email = EXCLUDED.email,
     phone = EXCLUDED.phone,
     address = EXCLUDED.address,
-    created_at = EXCLUDED.created_at,
-    updated_at = EXCLUDED.updated_at;
+    updated_at = CASE WHEN 
+                        stg.customer.first_name <> EXCLUDED.first_name
+                        OR stg.customer.last_name <> EXCLUDED.last_name
+                        OR stg.customer.email <> EXCLUDED.email
+                        OR stg.customer.phone <> EXCLUDED.phone
+                        OR stg.customer.address <> EXCLUDED.address
+                THEN 
+                        CURRENT_TIMESTAMP
+                ELSE
+                        stg.customer.updated_at
+                END;

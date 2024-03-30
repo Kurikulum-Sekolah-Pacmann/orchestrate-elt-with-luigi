@@ -7,9 +7,7 @@ INSERT INTO final.dim_product (
     category_name,
     category_desc,
     subcategory_name,
-    subcategory_desc,
-    created_at,
-    updated_at
+    subcategory_desc
 )
 
 SELECT
@@ -21,13 +19,7 @@ SELECT
     c."name" AS category_name,
     c.description AS category_desc,
     s."name" AS subcategory_name,
-    s.description AS subcategory_desc,
-    LEAST(MIN(p.created_at), 
-        MIN(c.created_at),
-        MIN(s.created_at)) AS created_at,
-    GREATEST(MAX(p.updated_at), 
-            MAX(c.updated_at),
-            MAX(s.updated_at)) AS updated_at
+    s.description AS subcategory_desc
 FROM
     stg.product p
     
@@ -35,17 +27,6 @@ JOIN stg.subcategory s
     ON p.subcategory_id = s.subcategory_id
 JOIN stg.category c 
     ON s.category_id = c.category_id
-    
-GROUP BY
-    p.id,
-    p.product_id,
-    p."name",
-    p.price,
-    p.stock,
-    c."name",
-    c.description,
-    s."name",
-    s.description
 
 ON CONFLICT(product_id) 
 DO UPDATE SET
@@ -57,5 +38,17 @@ DO UPDATE SET
     category_desc = EXCLUDED.category_desc,
     subcategory_name = EXCLUDED.subcategory_name,
     subcategory_desc = EXCLUDED.subcategory_desc,
-    created_at = EXCLUDED.created_at,
-    updated_at = EXCLUDED.updated_at;
+    updated_at = CASE WHEN 
+                        final.dim_product.product_nk <> EXCLUDED.product_nk
+                        OR final.dim_product.name <> EXCLUDED.name
+                        OR final.dim_product.price <> EXCLUDED.price
+                        OR final.dim_product.stock <> EXCLUDED.stock
+                        OR final.dim_product.category_name <> EXCLUDED.category_name
+                        OR final.dim_product.category_desc <> EXCLUDED.category_desc
+                        OR final.dim_product.subcategory_name <> EXCLUDED.subcategory_name
+                        OR final.dim_product.subcategory_desc <> EXCLUDED.subcategory_desc
+                THEN 
+                        CURRENT_TIMESTAMP
+                ELSE
+                        final.dim_product.updated_at
+                END;

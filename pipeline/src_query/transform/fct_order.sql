@@ -4,26 +4,16 @@ INSERT INTO final.fct_order (
     customer_id,
     date_id,
     quantity,
-    status,
-    created_at,
-    updated_at
+    status
 )
 
 SELECT
-    o.id AS order_id,
+    od.id AS order_id,
     dp.product_id,
     dc.customer_id,
     dd.date_id,
     od.quantity,
-    o.status,
-    LEAST(MIN(o.created_at), 
-        MIN(dp.created_at),
-        MIN(dc.created_at),
-        MIN(od.created_at)) AS created_at,
-    GREATEST(MAX(o.updated_at), 
-            MAX(dp.updated_at),
-            MAX(dc.updated_at),
-            MAX(od.updated_at)) AS updated_at
+    o.status
 FROM
     stg.order_detail od
 
@@ -39,11 +29,18 @@ JOIN final.dim_product dp
 JOIN final.dim_date dd 
     ON o.order_date = dd.date_actual
 
-GROUP BY
-    o.id,
-    dp.product_id,
-    dc.customer_id,
-    dd.date_id,
-    od.quantity,
-    o.status;
-  
+ON CONFLICT(order_id) 
+DO UPDATE SET
+    product_id = EXCLUDED.product_id,
+    customer_id = EXCLUDED.customer_id,
+    date_id = EXCLUDED.date_id,
+    quantity = EXCLUDED.quantity,
+    status = EXCLUDED.status,
+    updated_at = CASE WHEN 
+                        final.fct_order.quantity <> EXCLUDED.quantity
+                        OR final.fct_order.status <> EXCLUDED.status
+                THEN 
+                        CURRENT_TIMESTAMP
+                ELSE
+                        final.fct_order.updated_at
+                END;

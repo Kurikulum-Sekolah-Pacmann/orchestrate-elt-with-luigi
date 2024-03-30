@@ -5,9 +5,7 @@ INSERT INTO final.dim_customer (
     last_name,
     email,
     phone,
-    address,
-    created_at,
-    updated_at
+    address
 )
 
 SELECT
@@ -17,9 +15,7 @@ SELECT
     c.last_name,
     c.email,
     c.phone,
-    c.address,
-    c.created_at,
-    c.updated_at
+    c.address
 FROM
     stg.customer c
     
@@ -31,5 +27,15 @@ DO UPDATE SET
     email = EXCLUDED.email,
     phone = EXCLUDED.phone,
     address = EXCLUDED.address,
-    created_at = EXCLUDED.created_at,
-    updated_at = EXCLUDED.updated_at;
+    updated_at = CASE WHEN 
+                        final.dim_customer.customer_nk <> EXCLUDED.customer_nk
+                        OR final.dim_customer.first_name <> EXCLUDED.first_name
+                        OR final.dim_customer.last_name <> EXCLUDED.last_name
+                        OR final.dim_customer.email <> EXCLUDED.email
+                        OR final.dim_customer.phone <> EXCLUDED.phone
+                        OR final.dim_customer.address <> EXCLUDED.address
+                THEN 
+                        CURRENT_TIMESTAMP
+                ELSE
+                        final.dim_customer.updated_at
+                END;

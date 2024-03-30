@@ -1,12 +1,10 @@
 INSERT INTO stg.category 
-    (category_id, name, description, created_at, updated_at) 
+    (category_id, name, description) 
 
 SELECT
     category_id, 
     name, 
-    description, 
-    created_at, 
-    updated_at
+    description
 
 FROM public.category
 
@@ -14,5 +12,11 @@ ON CONFLICT(category_id)
 DO UPDATE SET
     name = EXCLUDED.name,
     description = EXCLUDED.description,
-    created_at = EXCLUDED.created_at,
-    updated_at = EXCLUDED.updated_at;
+    updated_at = CASE WHEN 
+                        stg.category.name <> EXCLUDED.name
+                        OR stg.category.description <> EXCLUDED.description
+                THEN 
+                        CURRENT_TIMESTAMP
+                ELSE
+                        stg.category.updated_at
+                END;

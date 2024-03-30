@@ -1,13 +1,11 @@
 INSERT INTO stg.orders 
-    (order_id, customer_id, order_date, status, created_at, updated_at)
+    (order_id, customer_id, order_date, status)
 
 SELECT
     order_id, 
     customer_id, 
     order_date, 
-    status, 
-    created_at, 
-    updated_at
+    status
 
 FROM public.orders
 
@@ -16,5 +14,12 @@ DO UPDATE SET
     customer_id = EXCLUDED.customer_id,
     order_date = EXCLUDED.order_date,
     status = EXCLUDED.status,
-    created_at = EXCLUDED.created_at,
-    updated_at = EXCLUDED.updated_at;
+    updated_at = CASE WHEN 
+                        stg.orders.customer_id <> EXCLUDED.customer_id
+                        OR stg.orders.order_date <> EXCLUDED.order_date
+                        OR stg.orders.status <> EXCLUDED.status
+                THEN 
+                        CURRENT_TIMESTAMP
+                ELSE
+                        stg.orders.updated_at
+                END;

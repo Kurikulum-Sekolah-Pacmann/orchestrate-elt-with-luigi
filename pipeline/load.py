@@ -9,6 +9,10 @@ from pipeline.utils.db_conn import db_connection
 from pipeline.utils.read_sql import read_sql_file
 from sqlalchemy.orm import sessionmaker
 import os
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Define DIR
 DIR_ROOT_PROJECT = os.getenv("DIR_ROOT_PROJECT")

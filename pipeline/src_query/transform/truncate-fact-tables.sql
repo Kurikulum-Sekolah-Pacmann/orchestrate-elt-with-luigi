@@ -1,1 +1,0 @@
-TRUNCATE TABLE final.fct_order CASCADE;
